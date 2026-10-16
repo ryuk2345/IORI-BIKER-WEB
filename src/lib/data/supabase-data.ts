@@ -1,15 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
-import { Producto, Categoria, Marca, HeroSlide, DestacadoCard, PromoEspecial } from '@/types';
 import { 
-  PRODUCTOS as MOCK_PRODUCTOS, 
-  CATEGORIAS as MOCK_CATEGORIAS, 
-  MARCAS as MOCK_MARCAS
-} from '@/data/mock';
+  Producto, 
+  Categoria, 
+  Marca, 
+  HeroSlide, 
+  DestacadoCard, 
+  PromoEspecial,
+  AjustesNegocio,
+  TiendaFisica
+} from '@/types';
 
-/**
- * Obtener todos los productos activos desde Supabase
- * Con fallback transparente a mock si no hay conexión
- */
 function isDynamicServerError(err: any): boolean {
   return (
     err?.digest === 'DYNAMIC_SERVER_USAGE' ||
@@ -17,7 +17,11 @@ function isDynamicServerError(err: any): boolean {
   );
 }
 
-export async function getProductos(allowMockFallback: boolean = false): Promise<Producto[]> {
+/**
+ * Obtener todos los productos activos desde Supabase.
+ * Nunca usa datos mock ni fallbacks artificiales. Si la base está vacía, devuelve [].
+ */
+export async function getProductos(): Promise<Producto[]> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -32,15 +36,14 @@ export async function getProductos(allowMockFallback: boolean = false): Promise<
 
     if (error) {
       console.error('Error al obtener productos desde Supabase:', error);
-      return allowMockFallback ? MOCK_PRODUCTOS : [];
+      return [];
     }
 
     if (!data || data.length === 0) {
-      return allowMockFallback ? MOCK_PRODUCTOS : [];
+      return [];
     }
 
     return data.map((p) => {
-      // Extraer tallas y colores desde variantes si existen
       const variantes = p.producto_variantes || [];
       const tallas = Array.from(new Set(variantes.map((v: any) => v.talla).filter(Boolean))) as string[];
       const coloresMap = new Map();
@@ -51,7 +54,6 @@ export async function getProductos(allowMockFallback: boolean = false): Promise<
       });
       const colores = Array.from(coloresMap.values());
 
-      // Extraer imágenes
       const imagenesDb = (p.producto_imagenes || [])
         .sort((a: any, b: any) => a.orden - b.orden)
         .map((img: any) => img.url);
@@ -97,7 +99,7 @@ export async function getProductos(allowMockFallback: boolean = false): Promise<
 }
 
 /**
- * Obtener un producto por su slug
+ * Obtener un producto por su slug desde Supabase
  */
 export async function getProductoBySlug(slug: string): Promise<Producto | null> {
   const productos = await getProductos();
@@ -105,7 +107,7 @@ export async function getProductoBySlug(slug: string): Promise<Producto | null> 
 }
 
 /**
- * Obtener categorías activas y sus subcategorías
+ * Obtener categorías activas y sus subcategorías desde Supabase
  */
 export async function getCategorias(): Promise<Categoria[]> {
   try {
@@ -116,14 +118,14 @@ export async function getCategorias(): Promise<Categoria[]> {
       .eq('activo', true)
       .order('orden', { ascending: true });
 
+    if (catErr || !cats || cats.length === 0) {
+      return [];
+    }
+
     const { data: subcats } = await supabase
       .from('subcategorias')
       .select('*')
       .order('orden', { ascending: true });
-
-    if (catErr || !cats || cats.length === 0) {
-      return MOCK_CATEGORIAS;
-    }
 
     return cats.map((cat) => {
       const subs = (subcats || [])
@@ -147,12 +149,12 @@ export async function getCategorias(): Promise<Categoria[]> {
   } catch (err) {
     if (isDynamicServerError(err)) throw err;
     console.error('Error al obtener categorías desde Supabase:', err);
-    return MOCK_CATEGORIAS;
+    return [];
   }
 }
 
 /**
- * Obtener las 14 marcas oficiales activas
+ * Obtener marcas activas desde Supabase
  */
 export async function getMarcas(): Promise<Marca[]> {
   try {
@@ -164,7 +166,7 @@ export async function getMarcas(): Promise<Marca[]> {
       .order('orden', { ascending: true });
 
     if (error || !data || data.length === 0) {
-      return MOCK_MARCAS.map((m) => ({ ...m, logo: undefined }));
+      return [];
     }
 
     return data.map((m) => ({
@@ -177,12 +179,12 @@ export async function getMarcas(): Promise<Marca[]> {
   } catch (err) {
     if (isDynamicServerError(err)) throw err;
     console.error('Error al obtener marcas desde Supabase:', err);
-    return MOCK_MARCAS.map((m) => ({ ...m, logo: undefined }));
+    return [];
   }
 }
 
 /**
- * Obtener los banners del Hero Slider
+ * Obtener los banners del Hero Slider desde Supabase
  */
 export async function getHeroSlides(): Promise<HeroSlide[]> {
   try {
@@ -198,28 +200,19 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
       return [];
     }
 
-    // Hora actual en zona horaria de Lima (America/Lima, UTC-5)
     const nowIsoLima = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' })).getTime();
 
-    // Filtrar banners con imagen válida y vigentes según fecha de Lima
     const validSlides = data.filter((b) => {
-      // Requerir al menos imagen_desktop
       if (!b.imagen_desktop || b.imagen_desktop.trim() === '') return false;
 
-      // Validación de fecha inicio
       if (b.fecha_inicio) {
         const tInicio = new Date(b.fecha_inicio).getTime();
-        if (!isNaN(tInicio) && nowIsoLima < tInicio) {
-          return false;
-        }
+        if (!isNaN(tInicio) && nowIsoLima < tInicio) return false;
       }
 
-      // Validación de fecha fin
       if (b.fecha_fin) {
         const tFin = new Date(b.fecha_fin).getTime();
-        if (!isNaN(tFin) && nowIsoLima > tFin) {
-          return false;
-        }
+        if (!isNaN(tFin) && nowIsoLima > tFin) return false;
       }
 
       return true;
@@ -232,7 +225,7 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
       textoBoton: b.texto_boton || 'Ver Más',
       enlace: b.enlace || '/productos',
       imagenDesktop: b.imagen_desktop,
-      imagenMobile: b.imagen_mobile || b.imagen_desktop, // Fallback si falta versión móvil
+      imagenMobile: b.imagen_mobile || b.imagen_desktop,
       badge: b.badge || undefined,
     }));
   } catch (err) {
@@ -243,39 +236,7 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
 }
 
 /**
- * Obtener las 3 cards destacadas
- */
-export async function getDestacadosCards(): Promise<DestacadoCard[]> {
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from('banners')
-      .select('*')
-      .eq('ubicacion', 'destacado')
-      .eq('activo', true)
-      .order('orden', { ascending: true });
-
-    if (error || !data || data.length === 0) {
-      return [];
-    }
-
-    return data.map((d) => ({
-      id: d.id,
-      tag: d.badge || 'DESTACADO',
-      titulo: d.titulo || '',
-      descripcion: d.subtitulo || '',
-      imagen: d.imagen_desktop,
-      enlace: d.enlace || '/productos',
-    }));
-  } catch (err) {
-    if (isDynamicServerError(err)) throw err;
-    console.error('Error al obtener destacados cards:', err);
-    return [];
-  }
-}
-
-/**
- * Obtener las 2 promos laterales fijas del Hero Mosaico
+ * Obtener las promos laterales fijas del Hero Mosaico desde Supabase
  */
 export async function getHeroLateralBanners(): Promise<any[]> {
   try {
@@ -289,27 +250,7 @@ export async function getHeroLateralBanners(): Promise<any[]> {
       .limit(2);
 
     if (error || !data || data.length === 0) {
-      // Fallback a los 2 banners con las fotos oficiales v2
-      return [
-        {
-          id: 'lateral-1',
-          titulo: 'CASCOS CERTIFICADOS ECE',
-          subtitulo: 'Homologación de alta velocidad y visor nocturno',
-          badge: 'NOVEDAD',
-          imagenDesktop: '/images-v2/hero-lateral-1.jpg',
-          enlace: '/categoria/cascos',
-          textoBoton: 'Ver modelos',
-        },
-        {
-          id: 'lateral-2',
-          titulo: 'COMBOS PILOTO & COPILOTO',
-          subtitulo: 'Arma tu equipamiento desde S/ 249.90',
-          badge: 'DESDE S/ 249.90',
-          imagenDesktop: '/images-v2/bloque-arma-tu-equipo.jpg',
-          enlace: '/combos',
-          textoBoton: 'Armar equipo',
-        },
-      ];
+      return [];
     }
 
     return data.map((b) => ({
@@ -330,7 +271,7 @@ export async function getHeroLateralBanners(): Promise<any[]> {
 }
 
 /**
- * Obtener opiniones reales de clientes aprobadas
+ * Obtener opiniones reales de clientes aprobadas desde Supabase
  */
 export async function getCustomerReviews(): Promise<any[]> {
   try {
@@ -361,7 +302,8 @@ export async function getCustomerReviews(): Promise<any[]> {
 }
 
 /**
- * Obtener la campaña oficial Promo Esparta
+ * Obtener la campaña oficial de promociones desde Supabase
+ * Se oculta si no está activa o si la fecha de vigencia ya venció
  */
 export async function getPromoEsparta(): Promise<PromoEspecial | null> {
   try {
@@ -377,6 +319,15 @@ export async function getPromoEsparta(): Promise<PromoEspecial | null> {
       return null;
     }
 
+    // Comprobar vigencia de la promoción en Lima
+    if (data.fecha_fin) {
+      const now = new Date().getTime();
+      const fechaFin = new Date(data.fecha_fin).getTime();
+      if (!isNaN(fechaFin) && now > fechaFin) {
+        return null;
+      }
+    }
+
     const productos = await getProductos();
     const productosEsparta = productos.filter((p) => p.esCombo || p.categoriaSlug === 'cascos').slice(0, 4);
 
@@ -385,10 +336,11 @@ export async function getPromoEsparta(): Promise<PromoEspecial | null> {
       slug: data.slug,
       titulo: data.titulo,
       subtitulo: data.subtitulo || '',
-      vigencia: 'Válido desde ya y durante todo Octubre 2026',
+      vigencia: data.fecha_fin ? `Válido hasta el ${new Date(data.fecha_fin).toLocaleDateString('es-PE')}` : 'Válido por tiempo limitado',
+      fechaFin: data.fecha_fin || undefined,
       tipo: 'Precio Rebajado en Dúo de Cascos',
-      bannerDesktop: data.banner_desktop || '/images/banners/banner_wide_1.png',
-      bannerMobile: data.banner_mobile || '/images/hero/hero_mobile_1.png',
+      bannerDesktop: data.banner_desktop || '',
+      bannerMobile: data.banner_mobile || '',
       descripcion: data.descripcion || '',
       productos: productosEsparta,
     };
@@ -396,5 +348,134 @@ export async function getPromoEsparta(): Promise<PromoEspecial | null> {
     if (isDynamicServerError(err)) throw err;
     console.error('Error al obtener promo esparta:', err);
     return null;
+  }
+}
+
+/**
+ * Obtener todos los ajustes del negocio desde la tabla 'ajustes_generales' en Supabase.
+ * Permite que Horarios, WhatsApp, Direcciones de Tiendas y Redes sean 100% administrables.
+ */
+export async function getAjustesTienda(): Promise<AjustesNegocio> {
+  const ajustesDefault: AjustesNegocio = {
+    empresa: {
+      razonSocial: 'IORI SAC',
+      ruc: '20610816089',
+      correo: 'ioribikershop@gmail.com',
+      nombreComercial: 'IORI BIKER SHOP',
+      direccionPrincipal: 'Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima',
+      horarioPrincipal: 'Lunes a Sábado 9:00 am – 10:00 pm / Domingos o Feriados 11:00 am – 8:00 pm',
+      telefono: '905445698',
+      whatsapp: '+51 905 445 698',
+    },
+    whatsapp: {
+      numero: '905445698',
+      numeroCompleto: '+51 905 445 698',
+      url: 'https://wa.me/51905445698',
+    },
+    tiendasFisicas: [
+      {
+        id: 'independencia',
+        nombre: 'Sede Independencia (Principal)',
+        direccion: 'Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima',
+        horario: 'Lunes a Sábado 9:00 am – 10:00 pm / Domingos y Feriados 11:00 am – 8:00 pm',
+        mapsUrl: 'https://maps.google.com/?q=Av.+Contisuyo+418,+Independencia,+Lima',
+        telefonoWhatsApp: '+51 905 445 698',
+      },
+      {
+        id: 'la-victoria',
+        nombre: 'Sede La Victoria',
+        direccion: 'Av. Nicolás Arriola 901, La Victoria, Lima',
+        horario: 'Lunes a Sábado 9:00 am – 6:00 pm',
+        mapsUrl: 'https://maps.google.com/?q=Av.+Nicolás+Arriola+901,+La+Victoria,+Lima',
+        telefonoWhatsApp: '+51 905 445 698',
+      },
+    ],
+    redes: {
+      instagram: 'https://instagram.com/ioribikershop',
+      tiktok: 'https://tiktok.com/@ioribikershop',
+      facebook: 'https://facebook.com/ioribikershop',
+    },
+    barraSuperior: {
+      texto: 'Envíos a todo el Perú • Atención personalizada por WhatsApp',
+      enlace: '/contacto',
+      activo: true,
+    },
+    tiendaEnPreparacion: {
+      activo: false,
+      mensaje: 'Estamos preparando nuestro nuevo catálogo digital. ¡Muy pronto disponible!',
+      mostrar_tiendas: true,
+      mostrar_whatsapp: true,
+    },
+  };
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('ajustes_generales').select('*');
+
+    if (error || !data || data.length === 0) {
+      return ajustesDefault;
+    }
+
+    const map: Record<string, any> = {};
+    data.forEach((row) => {
+      map[row.clave] = row.valor;
+    });
+
+    const emp = map['empresa'] || {};
+    const wsp = map['whatsapp'] || {};
+    const redes = map['redes_sociales'] || {};
+    const barra = map['barra_superior'] || {};
+    const prep = map['tienda_en_preparacion'] || {};
+    const tiendas = Array.isArray(map['tiendas_fisicas']) ? map['tiendas_fisicas'] : ajustesDefault.tiendasFisicas;
+
+    return {
+      empresa: {
+        razonSocial: emp.razonSocial || emp.razon_social || ajustesDefault.empresa.razonSocial,
+        ruc: emp.ruc || ajustesDefault.empresa.ruc,
+        correo: emp.correo || ajustesDefault.empresa.correo,
+        nombreComercial: emp.nombreComercial || emp.nombre_comercial || ajustesDefault.empresa.nombreComercial,
+        direccionPrincipal: emp.direccion || emp.direccionPrincipal || ajustesDefault.empresa.direccionPrincipal,
+        horarioPrincipal: emp.horario || emp.horarioPrincipal || ajustesDefault.empresa.horarioPrincipal,
+        telefono: emp.telefono || ajustesDefault.empresa.telefono,
+        whatsapp: emp.whatsapp || wsp.numeroCompleto || ajustesDefault.empresa.whatsapp,
+      },
+      whatsapp: {
+        numero: wsp.numero || ajustesDefault.whatsapp.numero,
+        numeroCompleto: wsp.numeroCompleto || (wsp.numero ? `+51 ${wsp.numero}` : ajustesDefault.whatsapp.numeroCompleto),
+        url: wsp.url || (wsp.numero ? `https://wa.me/51${wsp.numero}` : ajustesDefault.whatsapp.url),
+      },
+      tiendasFisicas: tiendas.map((t: any) => ({
+        id: t.id || 'tienda',
+        nombre: t.nombre || '',
+        direccion: t.direccion || '',
+        distrito: t.distrito || '',
+        ciudad: t.ciudad || 'Lima',
+        referencia: t.referencia || '',
+        horario: t.horario || '',
+        telefonoWhatsApp: t.telefonoWhatsApp || t.telefono || wsp.numeroCompleto || '+51 905 445 698',
+        mapsUrl: t.mapsUrl || t.maps_url || '',
+      })),
+      redes: {
+        instagram: redes.instagram || ajustesDefault.redes.instagram,
+        tiktok: redes.tiktok || ajustesDefault.redes.tiktok,
+        facebook: redes.facebook || ajustesDefault.redes.facebook,
+        youtube: redes.youtube,
+      },
+      barraSuperior: {
+        texto: barra.texto || ajustesDefault.barraSuperior.texto,
+        enlace: barra.enlace || ajustesDefault.barraSuperior.enlace,
+        activo: Boolean(barra.activo ?? true),
+      },
+      tiendaEnPreparacion: {
+        activo: Boolean(prep.activo),
+        mensaje: prep.mensaje || ajustesDefault.tiendaEnPreparacion.mensaje,
+        mostrar_tiendas: prep.mostrar_tiendas !== false,
+        mostrar_whatsapp: prep.mostrar_whatsapp !== false,
+      },
+    };
+  } catch (err) {
+    if (isDynamicServerError(err)) throw err;
+    console.error('Error al obtener ajustes desde Supabase:', err);
+    return ajustesDefault;
   }
 }

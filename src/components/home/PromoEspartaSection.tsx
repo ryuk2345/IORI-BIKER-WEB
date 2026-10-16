@@ -18,16 +18,26 @@ export function PromoEspartaSection({ promo }: PromoEspartaSectionProps) {
     minutos: number;
     segundos: number;
   }>({ dias: 0, horas: 0, minutos: 0, segundos: 0 });
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
-    // Fecha objetivo: 31 de Octubre de 2026 23:59:59 (hora de Lima UTC-5)
-    const targetDate = new Date('2026-10-31T23:59:59-05:00').getTime();
+    if (!promo?.fechaFin) {
+      setIsExpired(true);
+      return;
+    }
+
+    const targetDate = new Date(promo.fechaFin).getTime();
+    if (isNaN(targetDate) || targetDate <= Date.now()) {
+      setIsExpired(true);
+      return;
+    }
 
     const updateCountdown = () => {
-      const now = new Date().getTime();
+      const now = Date.now();
       const difference = targetDate - now;
 
       if (difference <= 0) {
+        setIsExpired(true);
         setTimeLeft({ dias: 0, horas: 0, minutos: 0, segundos: 0 });
         return;
       }
@@ -43,14 +53,21 @@ export function PromoEspartaSection({ promo }: PromoEspartaSectionProps) {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [promo?.fechaFin]);
 
-  // Ocultar bloque si no hay promo activa
-  if (!promo) {
+  // Ocultar sección completamente si no hay promo activa o si ya expiró
+  if (!promo || isExpired) {
     return null;
   }
 
   const productos = promo.productos || [];
+  const fechaTexto = promo.fechaFin
+    ? new Date(promo.fechaFin).toLocaleDateString('es-PE', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
 
   return (
     <section className="section-py bg-white border-t border-zinc-200">
@@ -59,13 +76,17 @@ export function PromoEspartaSection({ promo }: PromoEspartaSectionProps) {
         <div className="relative rounded-[4px] overflow-hidden bg-zinc-950 border border-zinc-800 text-white mb-8 sm:mb-12">
           {/* Fondo con imagen grande y degradado de contraste */}
           <div className="absolute inset-0">
-            <Image
-              src={promo.bannerDesktop || '/images-v2/bloque-arma-tu-equipo.jpg'}
-              alt={promo.titulo}
-              fill
-              className="object-cover object-center opacity-60"
-              sizes="100vw"
-            />
+            {promo.bannerDesktop ? (
+              <Image
+                src={promo.bannerDesktop}
+                alt={promo.titulo}
+                fill
+                className="object-cover object-center opacity-60"
+                sizes="100vw"
+              />
+            ) : (
+              <div className="w-full h-full bg-zinc-900 opacity-60" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-transparent" />
           </div>
 
@@ -76,9 +97,11 @@ export function PromoEspartaSection({ promo }: PromoEspartaSectionProps) {
                   <Flame className="w-3.5 h-3.5 fill-black" />
                   CAMPAÑA OFICIAL
                 </span>
-                <span className="text-12 text-zinc-400 font-heading uppercase tracking-wider">
-                  Hasta el 31 de Octubre de 2026
-                </span>
+                {fechaTexto && (
+                  <span className="text-12 text-zinc-400 font-heading uppercase tracking-wider">
+                    Hasta el {fechaTexto}
+                  </span>
+                )}
               </div>
 
               <h2 className="text-32 sm:text-40 lg:text-48 font-heading font-bold uppercase tracking-tight text-white leading-[0.95]">
@@ -100,58 +123,57 @@ export function PromoEspartaSection({ promo }: PromoEspartaSectionProps) {
               </div>
             </div>
 
-            {/* Contador regresivo hasta el 31/10 */}
-            <div className="bg-black/80 backdrop-blur-md border border-white/10 rounded-[4px] p-5 sm:p-6 shrink-0 w-full lg:w-auto">
-              <div className="text-12 font-heading uppercase tracking-widest text-[#F58220] font-bold mb-3 text-center lg:text-left">
-                Tiempo restante de la oferta
-              </div>
-
-              <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
-                <div className="bg-zinc-900/90 border border-zinc-800 rounded-[2px] p-2.5 sm:p-3 min-w-[55px] sm:min-w-[65px]">
-                  <span className="block text-24 sm:text-32 font-heading font-black text-white leading-none">
-                    {String(timeLeft.dias).padStart(2, '0')}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 uppercase font-heading tracking-wider mt-1 block">
-                    Días
-                  </span>
+            {/* Temporizador regresivo */}
+            <div className="shrink-0 bg-black/85 backdrop-blur-md border border-zinc-800 p-5 sm:p-6 rounded-[4px] w-full lg:w-auto">
+              <span className="text-11 font-heading uppercase tracking-widest text-[#F58220] block mb-3 font-bold text-center lg:text-left">
+                TIEMPO RESTANTE
+              </span>
+              <div className="flex items-center justify-center lg:justify-start gap-2.5 sm:gap-3 text-center">
+                <div className="flex flex-col items-center">
+                  <div className="w-14 sm:w-16 h-14 sm:h-16 bg-zinc-900 border border-zinc-700 rounded-[2px] flex items-center justify-center">
+                    <span className="text-22 sm:text-26 font-mono font-bold text-white">
+                      {String(timeLeft.dias).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="text-10 font-heading uppercase text-zinc-400 mt-1 font-bold">DÍAS</span>
                 </div>
-
-                <div className="bg-zinc-900/90 border border-zinc-800 rounded-[2px] p-2.5 sm:p-3 min-w-[55px] sm:min-w-[65px]">
-                  <span className="block text-24 sm:text-32 font-heading font-black text-white leading-none">
-                    {String(timeLeft.horas).padStart(2, '0')}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 uppercase font-heading tracking-wider mt-1 block">
-                    Horas
-                  </span>
+                <span className="text-20 text-[#F58220] font-bold -mt-4">:</span>
+                <div className="flex flex-col items-center">
+                  <div className="w-14 sm:w-16 h-14 sm:h-16 bg-zinc-900 border border-zinc-700 rounded-[2px] flex items-center justify-center">
+                    <span className="text-22 sm:text-26 font-mono font-bold text-white">
+                      {String(timeLeft.horas).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="text-10 font-heading uppercase text-zinc-400 mt-1 font-bold">HORAS</span>
                 </div>
-
-                <div className="bg-zinc-900/90 border border-zinc-800 rounded-[2px] p-2.5 sm:p-3 min-w-[55px] sm:min-w-[65px]">
-                  <span className="block text-24 sm:text-32 font-heading font-black text-white leading-none">
-                    {String(timeLeft.minutos).padStart(2, '0')}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 uppercase font-heading tracking-wider mt-1 block">
-                    Min
-                  </span>
+                <span className="text-20 text-[#F58220] font-bold -mt-4">:</span>
+                <div className="flex flex-col items-center">
+                  <div className="w-14 sm:w-16 h-14 sm:h-16 bg-zinc-900 border border-zinc-700 rounded-[2px] flex items-center justify-center">
+                    <span className="text-22 sm:text-26 font-mono font-bold text-white">
+                      {String(timeLeft.minutos).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="text-10 font-heading uppercase text-zinc-400 mt-1 font-bold">MIN</span>
                 </div>
-
-                <div className="bg-zinc-900/90 border border-zinc-800 rounded-[2px] p-2.5 sm:p-3 min-w-[55px] sm:min-w-[65px]">
-                  <span className="block text-24 sm:text-32 font-heading font-black text-brand leading-none">
-                    {String(timeLeft.segundos).padStart(2, '0')}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 uppercase font-heading tracking-wider mt-1 block">
-                    Seg
-                  </span>
+                <span className="text-20 text-[#F58220] font-bold -mt-4">:</span>
+                <div className="flex flex-col items-center">
+                  <div className="w-14 sm:w-16 h-14 sm:h-16 bg-zinc-900 border border-zinc-700 rounded-[2px] flex items-center justify-center">
+                    <span className="text-22 sm:text-26 font-mono font-bold text-[#F58220]">
+                      {String(timeLeft.segundos).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="text-10 font-heading uppercase text-zinc-400 mt-1 font-bold">SEG</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Fila de productos asociados (solo si hay al menos 4 productos) */}
+        {/* Fila de productos de la promoción (solo si hay 4 o más productos) */}
         {productos.length >= 4 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {productos.slice(0, 4).map((prod) => (
-              <ProductCard key={prod.id} producto={prod} />
+            {productos.slice(0, 4).map((producto) => (
+              <ProductCard key={producto.id} producto={producto} />
             ))}
           </div>
         )}

@@ -16,7 +16,7 @@ import {
 import { Producto } from '@/types';
 import { formatPEN } from '@/utils/currency';
 import { useCartStore } from '@/store/useCartStore';
-import { DATOS_NEGOCIO, PRODUCTOS } from '@/data/mock';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 import { ACuotazWidget } from '@/components/acuotaz/ACuotazWidget';
 import { ProductCarousel } from '@/components/ui/ProductCarousel';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -24,9 +24,11 @@ import { trackViewItem, trackAddToCart } from '@/lib/analytics';
 
 interface ProductDetailViewProps {
   producto: Producto;
+  relacionados?: Producto[];
 }
 
-export function ProductDetailView({ producto }: ProductDetailViewProps) {
+export function ProductDetailView({ producto, relacionados = [] }: ProductDetailViewProps) {
+  const { whatsapp } = useTiendaSettings();
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedTalla, setSelectedTalla] = useState<string | undefined>(
     producto.tallasDisponibles?.[0]
@@ -76,14 +78,9 @@ export function ProductDetailView({ producto }: ProductDetailViewProps) {
     ? producto.imagenes
     : ['/images/products/prod_1.png'];
 
-  const whatsappProductoUrl = `${DATOS_NEGOCIO.whatsappUrl}?text=${encodeURIComponent(
+  const whatsappProductoUrl = `${whatsapp.url}?text=${encodeURIComponent(
     `Hola Iori Biker Shop, deseo cotizar el producto: ${producto.nombre} (SKU: ${producto.sku || producto.id})`
   )}`;
-
-  // Relacionados: misma categoría o marca
-  const relacionados = PRODUCTOS.filter(
-    (p) => p.id !== producto.id && (p.categoriaSlug === producto.categoriaSlug || p.marcaId === producto.marcaId)
-  ).slice(0, 8);
 
   return (
     <div className="section-py bg-white">

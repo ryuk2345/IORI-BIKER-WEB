@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getProductoBySlug } from '@/lib/data/supabase-data';
+import { getProductoBySlug, getProductos } from '@/lib/data/supabase-data';
 import { ProductDetailView } from '@/components/product/ProductDetailView';
 
 export const revalidate = 10;
@@ -51,11 +51,18 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const producto = await getProductoBySlug(slug);
+  const [producto, todos] = await Promise.all([
+    getProductoBySlug(slug),
+    getProductos(),
+  ]);
 
   if (!producto) {
     notFound();
   }
+
+  const relacionados = todos.filter(
+    (p) => p.id !== producto.id && (p.categoriaSlug === producto.categoriaSlug || p.marcaId === producto.marcaId)
+  ).slice(0, 8);
 
   // Schema JSON-LD de Product
   const productJsonLd = {
@@ -91,7 +98,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
-      <ProductDetailView producto={producto} />
+      <ProductDetailView producto={producto} relacionados={relacionados} />
     </>
   );
 }

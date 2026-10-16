@@ -20,8 +20,7 @@ const barlowCondensed = Barlow_Condensed({
 
 export const metadata: Metadata = {
   title: 'Iori Biker Shop | Tienda de Accesorios para Moto e Indumentaria Biker en Perú',
-  description:
-    'Venta de cascos certificados DOT y ECE 22.06, guantes, casacas moteras, intercomunicadores, maleteros y accesorios para moto con envíos a todo el Perú. 2 tiendas en Lima.',
+  description: 'Tienda de accesorios para moto e indumentaria biker. Envíos a todo el Perú.',
   keywords: [
     'cascos para moto',
     'cascos certificados peru',
@@ -34,8 +33,8 @@ export const metadata: Metadata = {
   authors: [{ name: 'Iori Biker Shop' }],
   metadataBase: new URL('https://ioribikershop.pe'),
   openGraph: {
-    title: 'Iori Biker Shop | Tienda Biker en Perú',
-    description: 'Cascos certificados, accesorios e indumentaria con envíos a todo el Perú.',
+    title: 'Iori Biker Shop | Tienda de Accesorios para Moto e Indumentaria Biker en Perú',
+    description: 'Tienda de accesorios para moto e indumentaria biker. Envíos a todo el Perú.',
     locale: 'es_PE',
     type: 'website',
   },

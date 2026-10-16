@@ -23,6 +23,12 @@ try {
   // Ignorar si falla lectura
 }
 
+// Verificación de seguridad: E2E no puede correr contra el dominio de producción del cliente
+const targetBaseUrl = process.env.TEST_BASE_URL || 'http://localhost:3000';
+if (targetBaseUrl.includes('ioribikershop.com') || targetBaseUrl.includes('iori-biker.netlify.app')) {
+  throw new Error('SEGURIDAD: Las pruebas E2E solo pueden ejecutarse contra el entorno local o de pruebas, nunca contra producción.');
+}
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',

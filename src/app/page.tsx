@@ -1,5 +1,4 @@
 import React from 'react';
-import { cookies } from 'next/headers';
 import { HeroMosaic } from '@/components/home/HeroMosaic';
 import { FeaturesBar } from '@/components/home/FeaturesBar';
 import { CategoryCardsGrid } from '@/components/home/CategoryCardsGrid';
@@ -19,22 +18,14 @@ import {
   getMarcas,
   getPromoEsparta,
   getCustomerReviews,
+  getAjustesTienda,
 } from '@/lib/data/supabase-data';
 
 // Revalidación rápida cada 10 segundos
 export const revalidate = 10;
 
-interface HomePageProps {
-  searchParams?: Promise<{ demo?: string }>;
-}
-
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const cookieStore = await cookies();
-  const isAdmin = cookieStore.get('iori-demo-admin')?.value === 'admin';
-  const isDemo = resolvedSearchParams.demo === '1' || resolvedSearchParams.demo === 'true' || isAdmin;
-
-  // Carga paralela de todas las fuentes de datos
+export default async function HomePage() {
+  // Carga paralela de todas las fuentes de datos reales desde Supabase
   const [
     productos, 
     heroSlides, 
@@ -42,67 +33,69 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     categorias, 
     marcas, 
     promoEsparta, 
-    customerReviews
+    customerReviews,
+    ajustes,
   ] = await Promise.all([
-    getProductos(isDemo),
+    getProductos(),
     getHeroSlides(),
     getHeroLateralBanners(),
     getCategorias(),
     getMarcas(),
     getPromoEsparta(),
     getCustomerReviews(),
+    getAjustesTienda(),
   ]);
 
-  // 4. Filtrado para Cascos (+200 modelos)
+  // Filtrado para Cascos
   const categoriaCascos = categorias.find((c) => c.slug === 'cascos');
   const productosCascos = productos.filter(
     (p) => p.categoriaSlug === 'cascos' || p.categoriaNombre?.toLowerCase().includes('casco')
   );
 
-  // 6. Filtrado para Indumentaria
+  // Filtrado para Indumentaria
   const categoriaIndumentaria = categorias.find((c) => c.slug === 'indumentaria');
   const productosIndumentaria = productos.filter(
     (p) => p.categoriaSlug === 'indumentaria' || p.categoriaNombre?.toLowerCase().includes('indumentaria')
   );
 
-  // 7. Filtrado para Accesorios para moto
+  // Filtrado para Accesorios para moto
   const categoriaAccesoriosMoto = categorias.find((c) => c.slug === 'accesorios-moto');
   const productosAccesoriosMoto = productos.filter(
     (p) => p.categoriaSlug === 'accesorios-moto' || p.categoriaNombre?.toLowerCase().includes('accesorios')
   );
 
-  // 8. Filtrado para Nuevos Ingresos
+  // Filtrado para Nuevos Ingresos
   const nuevosIngresos = productos.filter((p) => p.esNuevo).length >= 4
     ? productos.filter((p) => p.esNuevo)
     : productos.slice(0, 8);
 
   return (
     <>
-      {/* 1. Hero en mosaico: slider principal 2/3 (16:9 y 4:5) + promos fijas 1/3 (16:9) */}
+      {/* 1. Hero en mosaico: slider principal 2/3 + promos fijas 1/3 */}
       <HeroMosaic
         slides={heroSlides}
         lateralPromos={heroLateralPromos}
-        isAdmin={isAdmin}
+        isAdmin={false}
       />
 
       {/* 2. Beneficios: debajo del hero en fondo blanco con íconos naranjas */}
       <FeaturesBar />
 
-      {/* 3. Compra por categoría: 8 categorías como tarjetas con foto (4:5) */}
+      {/* 3. Compra por categoría: categorías reales como tarjetas con foto (4:5) */}
       <CategoryCardsGrid
         categorias={categorias}
         productos={productos}
       />
 
-      {/* 4. Promo Esparta destacada, si está activa */}
+      {/* 4. Promo Esparta destacada: solo si está activa en la base de datos y vigente */}
       {promoEsparta && (
         <PromoEspartaSection promo={promoEsparta} />
       )}
 
-      {/* 5. Cascos: chips de subcategorías y fila de productos (solo si >= 4 productos) */}
+      {/* 5. Cascos: bajada sale de categoria.descripcion en Supabase (oculta si vacía) */}
       <CategoryRowSection
         titulo="CASCOS"
-        bajada="Más de 200 modelos certificados con homologación DOT y ECE 22.06 para máxima seguridad."
+        bajada={categoriaCascos?.descripcion || undefined}
         verTodoHref="/categoria/cascos"
         verTodoTexto="Ver todos los cascos"
         categoriaSlug="cascos"
@@ -111,16 +104,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         bgSubtle={false}
       />
 
-      {/* 6. Arma tu equipo: banda oscura con foto de cuerpo entero y 5 puntos interactivos */}
+      {/* 6. Arma tu equipo: foto de cuerpo entero y puntos interactivos (oculto si 0 productos) */}
       <GearBuilderBlock
         imagen="/images-v2/bloque-arma-tu-equipo.jpg"
         productos={productos}
       />
 
-      {/* 7. Indumentaria: chips y fila de productos (solo si >= 4 productos) */}
+      {/* 7. Indumentaria: bajada de la categoría en Supabase */}
       <CategoryRowSection
         titulo="INDUMENTARIA"
-        bajada="Casacas con protecciones nivel 1 y 2, botas antitorsión e impermeables de alta resistencia."
+        bajada={categoriaIndumentaria?.descripcion || undefined}
         verTodoHref="/categoria/indumentaria"
         verTodoTexto="Ver toda la indumentaria"
         categoriaSlug="indumentaria"
@@ -129,10 +122,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         bgSubtle={true}
       />
 
-      {/* 8. Accesorios para moto: chips y fila de productos (solo si >= 4 productos) */}
+      {/* 8. Accesorios para moto: bajada de la categoría en Supabase */}
       <CategoryRowSection
         titulo="ACCESORIOS PARA MOTO"
-        bajada="Porta celulares antivibración, manijas regulables, espejos deportivos y cajuelas reforzadas."
+        bajada={categoriaAccesoriosMoto?.descripcion || undefined}
         verTodoHref="/categoria/accesorios-moto"
         verTodoTexto="Ver todos los accesorios"
         categoriaSlug="accesorios-moto"
@@ -141,29 +134,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         bgSubtle={false}
       />
 
-      {/* 9. Nuevos ingresos: una fila de productos (solo si >= 4 productos) */}
+      {/* 9. Nuevos ingresos: solo si >= 4 productos */}
       <CategoryRowSection
         titulo="NUEVOS INGRESOS"
-        bajada="Lo último en ingresar a nuestras sedes de Independencia y La Victoria."
+        bajada={undefined}
         verTodoHref="/lo-nuevo"
         verTodoTexto="Ver lanzamientos"
         productos={nuevosIngresos}
         bgSubtle={true}
       />
 
-      {/* 10. Marcas: grilla fija de 14 logos en gris que toman color al pasar el mouse */}
+      {/* 10. Marcas: grilla de marcas oficiales (oculto si vacío) */}
       <BrandsGrid marcas={marcas} />
 
-      {/* 11. Opiniones de clientes: solo opiniones reales cargadas del admin (oculto si vacío) */}
+      {/* 11. Opiniones de clientes: solo opiniones reales desde Supabase (oculto si vacío) */}
       <CustomerReviews reviews={customerReviews} />
 
-      {/* 12. Visítanos: fotos reales de cada tienda (fachada e interior), mapa y cómo llegar */}
-      <StoresSection />
+      {/* 12. Visítanos: sedes leídas de ajustes_generales en Supabase (oculto si vacío) */}
+      <StoresSection tiendas={ajustes.tiendasFisicas} />
 
-      {/* 13. Síguenos: grilla de 6 imágenes con enlace a Instagram o TikTok (oculto si vacío) */}
-      <SocialFeed />
-
-      {/* 14. Footer: renderizado en LayoutShell */}
+      {/* 13. Síguenos: enlaces leídos de ajustes_generales en Supabase (oculto si vacío) */}
+      <SocialFeed redes={ajustes.redes} />
     </>
   );
 }

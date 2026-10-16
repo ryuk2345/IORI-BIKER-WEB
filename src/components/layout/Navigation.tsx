@@ -1,21 +1,67 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ArrowRight } from 'lucide-react';
-import { CATEGORIAS, MARCAS } from '@/data/mock';
+import { Categoria, Marca } from '@/types';
+import { createClient } from '@/lib/supabase/client';
 
 export function Navigation() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
 
-  // Asegurar las 8 categorías oficiales
-  const listaCategorias = CATEGORIAS.slice(0, 8);
+  useEffect(() => {
+    async function loadNavData() {
+      try {
+        const supabase = createClient();
+        const [catsRes, subcatsRes, marcasRes] = await Promise.all([
+          supabase.from('categorias').select('*').eq('activo', true).order('orden', { ascending: true }),
+          supabase.from('subcategorias').select('*').order('orden', { ascending: true }),
+          supabase.from('marcas').select('*').eq('activo', true).order('orden', { ascending: true }),
+        ]);
+
+        if (catsRes.data) {
+          const subcats = subcatsRes.data || [];
+          setCategorias(
+            catsRes.data.map((cat: any) => ({
+              id: cat.id,
+              nombre: cat.nombre,
+              slug: cat.slug,
+              columna: cat.columna,
+              imagen: cat.imagen || '',
+              subcategorias: subcats
+                .filter((s: any) => s.categoria_id === cat.id)
+                .map((s: any) => ({ id: s.id, nombre: s.nombre, slug: s.slug })),
+            }))
+          );
+        }
+
+        if (marcasRes.data) {
+          setMarcas(
+            marcasRes.data.map((m: any) => ({
+              id: m.id,
+              nombre: m.nombre,
+              slug: m.slug,
+              logo: m.logo,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Error al cargar datos de navegación:', err);
+      }
+    }
+
+    loadNavData();
+  }, []);
+
+  const listaCategorias = categorias.slice(0, 8);
 
   return (
     <nav className="hidden lg:block w-full bg-[#111111] text-white border-b border-zinc-800 relative z-30">
       <div className="container-iori">
         <ul className="flex items-center justify-between text-12 font-heading font-bold uppercase tracking-wider">
-          {/* Las 8 categorías oficiales de Iori Biker Shop */}
+          {/* Categorías oficiales cargadas desde Supabase */}
           {listaCategorias.map((cat) => {
             const isOpen = openDropdown === cat.slug;
             return (
@@ -37,7 +83,7 @@ export function Navigation() {
                   )}
                 </Link>
 
-                {/* Desplegable simple con sus subcategorías (sin mega menú de columnas) */}
+                {/* Desplegable simple con sus subcategorías */}
                 {isOpen && cat.subcategorias && cat.subcategorias.length > 0 && (
                   <div className="absolute top-full left-0 min-w-[220px] bg-[#16161A] border border-zinc-800 rounded-[4px] shadow-2xl py-2 z-50 animate-in fade-in duration-150">
                     <div className="px-3 py-1.5 border-b border-zinc-800 mb-1">
@@ -70,7 +116,7 @@ export function Navigation() {
             );
           })}
 
-          {/* Marcas con su desplegable */}
+          {/* Marcas desde Supabase con su desplegable */}
           <li
             className="relative"
             onMouseEnter={() => setOpenDropdown('marcas')}
@@ -86,7 +132,7 @@ export function Navigation() {
               <ChevronDown className="w-3 h-3 text-zinc-400" />
             </Link>
 
-            {openDropdown === 'marcas' && (
+            {openDropdown === 'marcas' && marcas.length > 0 && (
               <div className="absolute top-full right-0 min-w-[240px] bg-[#16161A] border border-zinc-800 rounded-[4px] shadow-2xl py-2 z-50 animate-in fade-in duration-150">
                 <div className="px-3 py-1.5 border-b border-zinc-800 mb-1">
                   <Link
@@ -100,7 +146,7 @@ export function Navigation() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-1 px-1 py-1 max-h-[300px] overflow-y-auto">
-                  {MARCAS.map((m) => (
+                  {marcas.map((m) => (
                     <Link
                       key={m.id}
                       href={`/marca/${m.slug}`}

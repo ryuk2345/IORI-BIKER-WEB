@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Play, ArrowUpRight, Heart } from 'lucide-react';
-import { DATOS_NEGOCIO } from '@/data/mock';
+import { Play, ArrowUpRight } from 'lucide-react';
+import { RedesSociales } from '@/types';
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -31,146 +31,101 @@ export interface SocialPost {
   caption?: string;
 }
 
-const DEFAULT_POSTS: SocialPost[] = [
-  {
-    id: 'post-1',
-    red: 'instagram',
-    imagen: '/images-v2/hero-slide-1.jpg',
-    enlace: DATOS_NEGOCIO.redes.instagram,
-    caption: '¡Llegaron los cascos Shaft y MT con certificación ECE 22.06 a nuestras sedes de Lima! 🏍️🔥',
-  },
-  {
-    id: 'post-2',
-    red: 'tiktok',
-    imagen: '/images-v2/hero-lateral-1.jpg',
-    enlace: DATOS_NEGOCIO.redes.tiktok,
-    caption: '¿Cómo saber si tu casco es original o réplica? Te lo explicamos en 30 segundos con Iori Biker 🪖',
-  },
-  {
-    id: 'post-3',
-    red: 'instagram',
-    imagen: '/images-v2/bloque-arma-tu-equipo.jpg',
-    enlace: DATOS_NEGOCIO.redes.instagram,
-    caption: 'Promo Esparta activa en Octubre: Piloto + Copiloto equipados con la máxima seguridad europea 🇵🇪',
-  },
-  {
-    id: 'post-4',
-    red: 'tiktok',
-    imagen: '/images-v2/hero-slide-2.jpg',
-    enlace: DATOS_NEGOCIO.redes.tiktok,
-    caption: 'Despacho del día hacia Trujillo y Arequipa por Agencia Shalom. ¡Envíos 100% seguros a todo el Perú! 📦✈️',
-  },
-  {
-    id: 'post-5',
-    red: 'instagram',
-    imagen: '/images/hero/hero_desktop_1.png',
-    enlace: DATOS_NEGOCIO.redes.instagram,
-    caption: 'Intercomunicadores Bluetooth con cancelación de ruido ambiental. Conéctate con tu copiloto sin cables 🎧⚡',
-  },
-  {
-    id: 'post-6',
-    red: 'tiktok',
-    imagen: '/images/banners/banner_mid_1.png',
-    enlace: DATOS_NEGOCIO.redes.tiktok,
-    caption: 'Casacas con protecciones nivel 2 en codos, hombros y espalda. Resistencia y estilo en ruta 🏍️🛡️',
-  },
-];
-
 interface SocialFeedProps {
   posts?: SocialPost[];
+  redes?: RedesSociales;
 }
 
-export function SocialFeed({ posts = DEFAULT_POSTS }: SocialFeedProps) {
-  // Oculto si no tiene contenido
+export function SocialFeed({ posts = [], redes }: SocialFeedProps) {
+  // Regla estricta: si no hay posts reales cargados, la sección se oculta completamente
   if (!posts || posts.length === 0) {
     return null;
   }
 
-  const list = posts.slice(0, 6);
+  const instagramUrl = redes?.instagram || 'https://instagram.com/ioribikershop';
+  const tiktokUrl = redes?.tiktok || 'https://tiktok.com/@ioribikershop';
 
   return (
-    <section className="section-py bg-[#111111] text-white border-t border-zinc-800 bg-grain">
+    <section className="section-py bg-zinc-950 text-white border-t border-zinc-900">
       <div className="container-iori">
-        {/* Encabezado del bloque Síguenos */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        {/* Cabecera con llamada a redes oficiales */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 mb-8 border-b border-zinc-800">
           <div>
-            <span className="text-12 font-heading font-bold text-brand uppercase tracking-widest block mb-1">
-              COMUNIDAD BIKER OFICIAL
-            </span>
+            <div className="inline-flex items-center gap-1.5 text-12 font-heading font-bold text-[#F58220] uppercase tracking-widest mb-1.5">
+              <span>COMUNIDAD BIKER OFICIAL</span>
+            </div>
             <h2 className="text-28 sm:text-36 font-heading font-bold uppercase tracking-tight text-white leading-tight">
-              SÍGUENOS EN REDES: @IORIBIKERSHOP
+              SÍGUENOS EN REDES
             </h2>
-            <p className="text-13 sm:text-14 text-zinc-400 mt-1 max-w-lg">
-              Únete a nuestra comunidad en Instagram y TikTok. Conoce nuevos ingresos, pruebas de resistencia y testimonios reales.
+            <p className="mt-1 text-14 text-zinc-400">
+              Videos de pruebas de impacto, unboxing de nuevos cascos y tips de mantenimiento.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <a
-              href={DATOS_NEGOCIO.redes.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 text-white rounded-[2px] text-12 font-heading font-bold uppercase tracking-wider transition"
-            >
-              <InstagramIcon className="w-3.5 h-3.5" />
-              <span>Instagram</span>
-            </a>
+          <div className="flex items-center gap-3">
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[2px] bg-zinc-900 border border-zinc-700 hover:border-[#F58220] hover:text-[#F58220] text-12 font-heading uppercase font-bold tracking-wider transition-colors"
+              >
+                <InstagramIcon className="w-4 h-4" />
+                <span>Instagram</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+              </a>
+            )}
 
-            <a
-              href={DATOS_NEGOCIO.redes.tiktok}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-2 bg-black border border-zinc-700 hover:border-zinc-500 text-white rounded-[2px] text-12 font-heading font-bold uppercase tracking-wider transition"
-            >
-              <Play className="w-3.5 h-3.5 fill-current text-brand" />
-              <span>TikTok</span>
-            </a>
+            {tiktokUrl && (
+              <a
+                href={tiktokUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[2px] bg-zinc-900 border border-zinc-700 hover:border-[#F58220] hover:text-[#F58220] text-12 font-heading uppercase font-bold tracking-wider transition-colors"
+              >
+                <span className="font-bold text-sm">TT</span>
+                <span>TikTok</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Grilla exacta de 6 imágenes */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {list.map((post) => {
-            const url = post.enlace || (post.red === 'instagram' ? DATOS_NEGOCIO.redes.instagram : DATOS_NEGOCIO.redes.tiktok);
+        {/* Grilla de imágenes */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          {posts.map((post) => {
+            const enlace = post.enlace || (post.red === 'instagram' ? instagramUrl : tiktokUrl);
 
             return (
               <a
                 key={post.id}
-                href={url}
+                href={enlace}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative aspect-square bg-zinc-900 rounded-[4px] overflow-hidden border border-zinc-800 hover:border-brand transition-all block"
+                className="group relative aspect-square rounded-[4px] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-[#F58220] transition-all duration-300"
               >
                 <Image
                   src={post.imagen}
-                  alt={post.caption || 'Publicación Iori Biker'}
+                  alt={post.caption || 'Publicación oficial Iori Biker'}
                   fill
-                  sizes="(min-width: 1024px) 200px, 50vw"
-                  className="object-cover object-center group-hover:scale-108 transition-transform duration-500"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
+                  className="object-cover group-hover:scale-110 transition-transform duration-500"
                 />
 
-                {/* Badge de la red social en la esquina superior */}
-                <div className="absolute top-2 right-2 z-10">
-                  <span className="w-6 h-6 rounded-full bg-black/75 backdrop-blur-xs flex items-center justify-center text-white border border-white/10 group-hover:bg-brand group-hover:text-black transition-colors">
-                    {post.red === 'instagram' ? (
-                      <InstagramIcon className="w-3 h-3" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3">
+                  <div className="self-end bg-black/70 p-1.5 rounded-full text-white">
+                    {post.red === 'tiktok' ? (
+                      <Play className="w-3.5 h-3.5 fill-white text-white" />
                     ) : (
-                      <Play className="w-3 h-3 fill-current text-white group-hover:text-black" />
+                      <InstagramIcon className="w-3.5 h-3.5" />
                     )}
-                  </span>
-                </div>
+                  </div>
 
-                {/* Overlay hover con texto y enlace */}
-                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-3 flex flex-col justify-end text-white">
                   {post.caption && (
-                    <p className="text-[11px] line-clamp-3 leading-snug text-zinc-200 mb-1">
+                    <p className="text-[11px] text-zinc-200 line-clamp-3 leading-snug font-medium drop-shadow-sm">
                       {post.caption}
                     </p>
                   )}
-                  <span className="inline-flex items-center gap-1 text-[10px] font-heading font-bold uppercase tracking-wider text-brand">
-                    <span>Ver post</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </span>
                 </div>
               </a>
             );

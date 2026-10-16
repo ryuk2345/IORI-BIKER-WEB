@@ -6,9 +6,22 @@ import {
   MapPin, Phone, MessageCircle, Clock, Mail, Send, 
   CheckCircle2, AlertCircle, Loader2, ExternalLink, ShieldCheck 
 } from 'lucide-react';
-import { DATOS_NEGOCIO } from '@/data/mock';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 
 export default function ContactoPage() {
+  const { empresa, whatsapp, tiendasFisicas } = useTiendaSettings();
+  const sedePrincipal = tiendasFisicas[0] || {
+    nombre: 'Sede Tahuantisuyo (Independencia)',
+    direccion: 'Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima',
+    horario: 'Lunes a Sábado 9:00 am – 10:00 pm / Domingos o Feriados 11:00 am – 8:00 pm',
+    mapsUrl: 'https://maps.google.com/?q=Av.+Contisuyo+418,+Independencia,+Lima',
+  };
+  const sedeSecundaria = tiendasFisicas[1] || {
+    nombre: 'Sede La Victoria',
+    direccion: 'Av. Nicolás Arriola 901, La Victoria, Lima',
+    horario: 'Lunes a Sábado 9:00 am – 6:00 pm',
+    mapsUrl: 'https://maps.google.com/?q=Av.+Nicolás+Arriola+901,+La+Victoria,+Lima',
+  };
   const [loading, setLoading] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -108,17 +121,17 @@ export default function ContactoPage() {
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 <a
-                  href={DATOS_NEGOCIO.whatsappUrl}
+                  href={whatsapp.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-heading font-bold uppercase text-xs tracking-wider rounded-xl transition-all shadow-md active:scale-95"
                 >
                   <Phone className="w-4 h-4" />
-                  Escribir al {DATOS_NEGOCIO.whatsapp}
+                  Escribir al {whatsapp.numeroCompleto}
                 </a>
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                   <Mail className="w-4 h-4 text-brand" />
-                  <span>{DATOS_NEGOCIO.correo}</span>
+                  <span>{empresa.correo}</span>
                 </div>
               </div>
             </div>
@@ -139,13 +152,13 @@ export default function ContactoPage() {
               <div className="space-y-2.5 text-xs text-zinc-600">
                 <div className="flex items-start gap-2.5">
                   <MapPin className="w-4 h-4 text-brand shrink-0 mt-0.5" />
-                  <span className="font-medium text-zinc-800">{DATOS_NEGOCIO.tiendaPrincipal.direccion}</span>
+                  <span className="font-medium text-zinc-800">{sedePrincipal.direccion}</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <Clock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-zinc-900">Horarios de Atención:</span>
-                    <p className="text-zinc-700 mt-0.5">{DATOS_NEGOCIO.tiendaPrincipal.horario}</p>
+                    <p className="text-zinc-700 mt-0.5">{sedePrincipal.horario}</p>
                   </div>
                 </div>
               </div>
@@ -163,7 +176,7 @@ export default function ContactoPage() {
 
               <div className="flex flex-wrap gap-2.5 pt-1">
                 <a
-                  href={DATOS_NEGOCIO.tiendaPrincipal.googleMapsUrl}
+                  href={sedePrincipal.mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold uppercase rounded-lg transition-colors"
@@ -197,13 +210,13 @@ export default function ContactoPage() {
               <div className="space-y-2.5 text-xs text-zinc-600">
                 <div className="flex items-start gap-2.5">
                   <MapPin className="w-4 h-4 text-brand shrink-0 mt-0.5" />
-                  <span className="font-medium text-zinc-800">{DATOS_NEGOCIO.tiendaSecundaria.direccion}</span>
+                  <span className="font-medium text-zinc-800">{sedeSecundaria.direccion}</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <Clock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-zinc-900">Horarios de Atención:</span>
-                    <p className="text-zinc-700 mt-0.5">{DATOS_NEGOCIO.tiendaSecundaria.horario}</p>
+                    <p className="text-zinc-700 mt-0.5">{sedeSecundaria.horario}</p>
                   </div>
                 </div>
               </div>
@@ -221,7 +234,7 @@ export default function ContactoPage() {
 
               <div className="flex flex-wrap gap-2.5 pt-1">
                 <a
-                  href={DATOS_NEGOCIO.tiendaSecundaria.googleMapsUrl}
+                  href={sedeSecundaria.mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold uppercase rounded-lg transition-colors"
@@ -274,7 +287,7 @@ export default function ContactoPage() {
                     Enviar otro mensaje
                   </button>
                   <a
-                    href={DATOS_NEGOCIO.whatsappUrl}
+                    href={whatsapp.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#25D366] text-white text-xs font-bold uppercase rounded-xl hover:bg-[#1EBE5D] transition-colors shadow-xs"

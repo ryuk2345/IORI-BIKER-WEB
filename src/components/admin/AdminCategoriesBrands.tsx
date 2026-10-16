@@ -13,7 +13,9 @@ import {
   Trash2, 
   Sparkles, 
   AlertCircle,
-  Filter
+  Filter,
+  Pencil,
+  X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { sanitizeSvgFile } from '@/lib/security/svg-sanitizer';
@@ -49,6 +51,10 @@ export function AdminCategoriesBrands({
 
   // Subiendo logo
   const [uploadingBrandId, setUploadingBrandId] = useState<string | null>(null);
+
+  // Edición de bajada/descripción de categoría
+  const [editingCategory, setEditingCategory] = useState<{ id: string; nombre: string; descripcion: string } | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
 
   // Ref para auto-scroll del ancla
   const marcasSectionRef = useRef<HTMLDivElement>(null);
@@ -123,6 +129,26 @@ export function AdminCategoriesBrands({
       onRefresh();
     } catch (err: any) {
       showToast('Error: ' + err.message, 'error');
+    }
+  };
+
+  const handleSaveCategoryDescription = async () => {
+    if (!editingCategory) return;
+    setSavingCategory(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('categorias')
+        .update({ descripcion: editingCategory.descripcion.trim() || null })
+        .eq('id', editingCategory.id);
+      if (error) throw error;
+      showToast(`Bajada de ${editingCategory.nombre} actualizada exitosamente`, 'success');
+      setEditingCategory(null);
+      onRefresh();
+    } catch (err: any) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      setSavingCategory(false);
     }
   };
 
@@ -451,13 +477,29 @@ export function AdminCategoriesBrands({
                     className="object-contain p-2"
                   />
                 </div>
-                <div>
-                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-900">
-                    {c.nombre}
-                  </h4>
-                  <p className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5">
-                    {c.descripcion}
-                  </p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-900">
+                      {c.nombre}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCategory({ id: c.id, nombre: c.nombre, descripcion: c.descripcion || '' })}
+                      className="p-1 text-zinc-400 hover:text-[#F58220] transition rounded hover:bg-zinc-200/60 cursor-pointer"
+                      title="Editar bajada para la home"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </div>
+                  {c.descripcion ? (
+                    <p className="text-[11px] text-zinc-600 line-clamp-2">
+                      {c.descripcion}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-zinc-400 italic">
+                      Sin bajada (se ocultará en la home)
+                    </p>
+                  )}
                 </div>
                 <div className="pt-2 border-t border-zinc-200/80 flex items-center justify-between text-[11px]">
                   <span className="text-zinc-400 capitalize">Columna: {c.columna}</span>
@@ -472,6 +514,66 @@ export function AdminCategoriesBrands({
               </div>
             ))}
           </div>
+
+          {/* Modal para editar bajada de categoría */}
+          {editingCategory && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-zinc-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#F58220] block">
+                      Bajada para la Home
+                    </span>
+                    <h3 className="text-base font-black text-zinc-900 uppercase">
+                      {editingCategory.nombre}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-zinc-700 block">
+                    Texto de la bajada (subtítulo que se muestra en la tienda):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editingCategory.descripcion}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, descripcion: e.target.value })}
+                    placeholder="Ej. Protección integral con certificación internacional para ruta y ciudad..."
+                    className="w-full text-xs p-3 border border-zinc-300 rounded-xl focus:border-[#F58220] focus:ring-1 focus:ring-[#F58220] outline-hidden bg-zinc-50"
+                  />
+                  <p className="text-[11px] text-zinc-500">
+                    Si dejas este campo vacío, la sección de la categoría en la home no mostrará bajada.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    disabled={savingCategory}
+                    className="px-4 py-2 text-xs font-bold text-zinc-600 hover:bg-zinc-100 rounded-xl transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveCategoryDescription}
+                    disabled={savingCategory}
+                    className="px-5 py-2 text-xs font-bold bg-[#F58220] hover:bg-[#d96e14] text-black rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {savingCategory ? 'Guardando...' : 'Guardar Bajada'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -47,9 +47,6 @@ export function AdminAppShell({ children }: { children: React.ReactNode }) {
     return (
       <AdminLogin
         onLoginSuccess={(u) => {
-          if (typeof document !== 'undefined') {
-            document.cookie = `iori-demo-admin=${u.profile?.rol || 'admin'}; path=/; max-age=86400`;
-          }
           setUser(u);
         }}
       />

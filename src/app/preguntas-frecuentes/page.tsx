@@ -7,7 +7,7 @@ import {
   ChevronDown, MessageCircle, Store, ShoppingBag, ShieldCheck, 
   BadgePercent, AlertCircle, Loader2 
 } from 'lucide-react';
-import { DATOS_NEGOCIO } from '@/data/mock';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 import { createClient } from '@/lib/supabase/client';
 
 interface FaqItem {
@@ -30,6 +30,7 @@ const CATEGORIAS_FAQS = [
 ];
 
 export default function PreguntasFrecuentesPage() {
+  const { whatsapp } = useTiendaSettings();
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('todos');
@@ -270,12 +271,12 @@ export default function PreguntasFrecuentesPage() {
             Escríbenos directamente a nuestro WhatsApp oficial (+51 905 445 698). Un asesor motero te responderá en minutos con fotos y detalles.
           </p>
           <a
-            href={DATOS_NEGOCIO.whatsappUrl}
+            href={whatsapp.url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-heading font-bold uppercase tracking-wider text-xs rounded-xl transition-all shadow-lg active:scale-95"
           >
-            <Phone className="w-4 h-4" /> Escribir al WhatsApp (+51 905 445 698)
+            <Phone className="w-4 h-4" /> Escribir al WhatsApp ({whatsapp.numeroCompleto})
           </a>
         </div>
       </div>

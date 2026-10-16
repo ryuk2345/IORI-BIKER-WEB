@@ -44,14 +44,6 @@ export async function verifyStaffAuth(req: NextRequest): Promise<AuthCheckResult
     }
   }
 
-  // 2.1 Verificar cookie de sesión DEMO para entorno de administración local / pruebas
-  const demoCookie = req.cookies.get('iori-demo-admin')?.value;
-  if (demoCookie === 'admin') {
-    return { authorized: true, role: 'admin', user: { id: 'demo-admin-id', role: 'admin', email: 'admin@ioribikershop.pe' } };
-  } else if (demoCookie === 'atencion') {
-    return { authorized: true, role: 'atencion', user: { id: 'demo-atencion-id', role: 'atencion', email: 'atencion@ioribikershop.pe' } };
-  }
-
   if (!user) {
     return { authorized: false, error: 'No autenticado. Inicie sesión.' };
   }

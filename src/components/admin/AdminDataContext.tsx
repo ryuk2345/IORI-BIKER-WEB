@@ -9,9 +9,8 @@ import {
   getAdminShipping, 
   getAdminPromos, 
   getAdminCoupons, 
-  getInboxCount 
+  getInboxCount,
 } from '@/lib/services/admin-service';
-import { CATEGORIAS, MARCAS } from '@/data/mock';
 
 export interface AdminDataContextType {
   user: any | null;
@@ -88,25 +87,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
       } else {
-        if (typeof document !== 'undefined') {
-          if (document.cookie.includes('iori-demo-admin=atencion')) {
-            setUser({
-              id: 'demo-atencion-user',
-              email: 'atencion@ioribikershop.pe',
-              profile: { rol: 'atencion', is_owner: false, nombre: 'Asesor de Atención (DEMO)' },
-            });
-          } else if (document.cookie.includes('iori-demo-admin=admin')) {
-            setUser({
-              id: 'demo-admin-user',
-              email: 'admin@ioribikershop.pe',
-              profile: { rol: 'admin', is_owner: true, nombre: 'Admin Iori (DEMO)' },
-            });
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
+        setUser(null);
       }
     } catch (e) {
       setUser(null);
@@ -156,22 +137,8 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         setProducts([]);
       }
 
-      setCategories(
-        catsRes?.data && catsRes.data.length > 0
-          ? catsRes.data
-          : CATEGORIAS.map((c) => ({
-              id: c.id,
-              nombre: c.nombre,
-              slug: c.slug,
-              subcategorias: c.subcategorias.map((s) => ({ slug: s.slug, nombre: s.nombre })),
-            }))
-      );
-
-      setBrands(
-        brandsRes?.data && brandsRes.data.length > 0
-          ? brandsRes.data
-          : MARCAS.map((m) => ({ id: m.id, nombre: m.nombre, slug: m.slug, logo: (m as any).logo || null }))
-      );
+      setCategories(catsRes?.data || []);
+      setBrands(brandsRes?.data || []);
 
       setBanners(bans || []);
       const settingsObj = sets || {};
@@ -213,9 +180,6 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
     } catch (e) {
       // Ignorar error al salir
-    }
-    if (typeof document !== 'undefined') {
-      document.cookie = 'iori-demo-admin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     }
     setUser(null);
   };

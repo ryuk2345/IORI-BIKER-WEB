@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { X, ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
-import { CATEGORIAS, MARCAS, DATOS_NEGOCIO } from '@/data/mock';
+import { Categoria, Marca } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -13,6 +15,54 @@ interface MobileNavProps {
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [isMarcasExpanded, setIsMarcasExpanded] = useState(false);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+
+  const { whatsapp } = useTiendaSettings();
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const supabase = createClient();
+        const [catsRes, subcatsRes, marcasRes] = await Promise.all([
+          supabase.from('categorias').select('*').eq('activo', true).order('orden', { ascending: true }),
+          supabase.from('subcategorias').select('*').order('orden', { ascending: true }),
+          supabase.from('marcas').select('*').eq('activo', true).order('orden', { ascending: true }),
+        ]);
+
+        if (catsRes.data) {
+          const subcats = subcatsRes.data || [];
+          setCategorias(
+            catsRes.data.map((cat: any) => ({
+              id: cat.id,
+              nombre: cat.nombre,
+              slug: cat.slug,
+              imagen: cat.imagen || '',
+              subcategorias: subcats
+                .filter((s: any) => s.categoria_id === cat.id)
+                .map((s: any) => ({ id: s.id, nombre: s.nombre, slug: s.slug })),
+            }))
+          );
+        }
+
+        if (marcasRes.data) {
+          setMarcas(
+            marcasRes.data.map((m: any) => ({
+              id: m.id,
+              nombre: m.nombre,
+              slug: m.slug,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Error al cargar datos en menú móvil:', err);
+      }
+    }
+
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -20,7 +70,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
     setExpandedCat(expandedCat === slug ? null : slug);
   };
 
-  const listaCategorias = CATEGORIAS.slice(0, 8);
+  const listaCategorias = categorias.slice(0, 8);
 
   return (
     <div className="fixed inset-0 z-50 md:hidden flex">
@@ -76,11 +126,11 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
 
             return (
               <div key={cat.id} className="border-b border-zinc-800/60 pb-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-zinc-800/40">
                   <Link
                     href={`/categoria/${cat.slug}`}
                     onClick={onClose}
-                    className="flex-1 py-2 px-2 text-14 font-heading font-bold uppercase tracking-wide text-zinc-200 hover:text-[#F58220] transition-colors"
+                    className="flex-1 text-14 font-heading font-bold uppercase tracking-wide text-zinc-100 hover:text-[#F58220] transition-colors"
                   >
                     {cat.nombre}
                   </Link>
@@ -89,8 +139,8 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                     <button
                       type="button"
                       onClick={() => toggleCategory(cat.slug)}
-                      className="p-2 text-zinc-400 hover:text-white cursor-pointer"
-                      aria-label={`Desplegar ${cat.nombre}`}
+                      className="p-1 text-zinc-400 hover:text-white"
+                      aria-label={`Ver subcategorías de ${cat.nombre}`}
                     >
                       <ChevronDown
                         className={`w-4 h-4 transition-transform duration-200 ${
@@ -101,17 +151,16 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                   )}
                 </div>
 
-                {/* Subcategorías en acordeón */}
                 {isExpanded && hasSubs && (
                   <div className="pl-4 pr-2 pb-2 pt-1 space-y-1 bg-[#16161A] rounded-[2px] mt-0.5">
                     <Link
                       href={`/categoria/${cat.slug}`}
                       onClick={onClose}
-                      className="block py-1 text-12 text-[#F58220] font-heading font-bold uppercase"
+                      className="block py-1 text-12 font-bold text-[#F58220] hover:underline"
                     >
-                      Ver todo en {cat.nombre} →
+                      Ver todo {cat.nombre} &rarr;
                     </Link>
-                    {cat.subcategorias?.map((sub) => (
+                    {cat.subcategorias.map((sub) => (
                       <Link
                         key={sub.id}
                         href={`/categoria/${cat.slug}/${sub.slug}`}
@@ -127,21 +176,21 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             );
           })}
 
-          {/* Marcas Acordeón */}
-          <div className="border-b border-zinc-800/60 pb-1 pt-1">
-            <div className="flex items-center justify-between">
+          {/* Acordeón de Marcas */}
+          <div className="border-b border-zinc-800/60 pb-1 pt-2">
+            <div className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-zinc-800/40">
               <Link
                 href="/marcas"
                 onClick={onClose}
-                className="flex-1 py-2 px-2 text-14 font-heading font-bold uppercase tracking-wide text-zinc-200 hover:text-[#F58220] transition-colors"
+                className="flex-1 text-14 font-heading font-bold uppercase tracking-wide text-zinc-100 hover:text-[#F58220]"
               >
                 Marcas Oficiales
               </Link>
               <button
                 type="button"
                 onClick={() => setIsMarcasExpanded(!isMarcasExpanded)}
-                className="p-2 text-zinc-400 hover:text-white cursor-pointer"
-                aria-label="Desplegar marcas"
+                className="p-1 text-zinc-400 hover:text-white"
+                aria-label="Ver todas las marcas"
               >
                 <ChevronDown
                   className={`w-4 h-4 transition-transform duration-200 ${
@@ -151,9 +200,9 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
               </button>
             </div>
 
-            {isMarcasExpanded && (
+            {isMarcasExpanded && marcas.length > 0 && (
               <div className="pl-4 pr-2 pb-2 pt-1 grid grid-cols-2 gap-1 bg-[#16161A] rounded-[2px] mt-0.5">
-                {MARCAS.map((m) => (
+                {marcas.map((m) => (
                   <Link
                     key={m.id}
                     href={`/marca/${m.slug}`}
@@ -188,15 +237,15 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
               onClick={onClose}
               className="block py-2 px-2 text-12 text-zinc-300 hover:text-white uppercase font-heading font-bold"
             >
-              Nuestras 2 Tiendas en Lima
+              Nuestras Tiendas en Lima
             </Link>
           </div>
         </div>
 
-        {/* Footer del Drawer: WhatsApp oficial */}
+        {/* Footer del Drawer: WhatsApp oficial desde Supabase */}
         <div className="p-3 border-t border-zinc-800 bg-[#0B0B0C]">
           <a
-            href={DATOS_NEGOCIO.whatsappUrl}
+            href={whatsapp.url}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-[4px] text-12 font-heading font-bold uppercase tracking-wider transition-colors"

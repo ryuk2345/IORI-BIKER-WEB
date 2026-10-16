@@ -20,24 +20,6 @@ export interface AdminServerSession {
  * Si no hay sesión válida, redirige a /admin (donde se solicita login).
  */
 export async function verifyAdminRole(allowedRoles: AdminRole[] = ['admin', 'atencion']): Promise<AdminServerSession | null> {
-  const cookieStore = await cookies();
-  const demoCookie = cookieStore.get('iori-demo-admin')?.value;
-
-  // 1. Soporte para modo DEMO / Desarrollo local si está habilitado
-  if (demoCookie === 'admin' || demoCookie === 'atencion') {
-    const demoRole = demoCookie as AdminRole;
-    if (!allowedRoles.includes(demoRole)) {
-      redirect(ADMIN_ROUTES.PEDIDOS);
-    }
-    return {
-      userId: 'demo-user-id',
-      email: demoRole === 'admin' ? 'admin@ioribikershop.pe' : 'atencion@ioribikershop.pe',
-      role: demoRole,
-      isOwner: demoRole === 'admin',
-      nombre: demoRole === 'admin' ? 'Administrador Iori (DEMO)' : 'Asesor de Atención (DEMO)',
-    };
-  }
-
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

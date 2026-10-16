@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MARCAS } from '@/data/mock';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Marca } from '@/types';
 
@@ -9,8 +8,11 @@ interface BrandsGridProps {
   marcas?: Marca[];
 }
 
-export function BrandsGrid({ marcas = MARCAS }: BrandsGridProps) {
-  const listaMarcas = marcas && marcas.length > 0 ? marcas : MARCAS;
+export function BrandsGrid({ marcas = [] }: BrandsGridProps) {
+  // Si no hay marcas en la base, ocultar la sección
+  if (!marcas || marcas.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-10 sm:py-16 bg-[#F5F5F5]">
@@ -22,9 +24,9 @@ export function BrandsGrid({ marcas = MARCAS }: BrandsGridProps) {
           verTodoTexto="Ver todas las marcas"
         />
 
-        {/* Grilla fija de 14 marcas con logos en gris que toman color al pasar el mouse */}
+        {/* Grilla de marcas con logos en gris que toman color al pasar el mouse */}
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3 sm:gap-4">
-          {listaMarcas.map((marca) => (
+          {marcas.map((marca) => (
             <Link
               key={marca.id}
               href={`/marca/${marca.slug}`}

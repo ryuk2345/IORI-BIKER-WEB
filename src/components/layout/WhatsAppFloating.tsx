@@ -4,9 +4,11 @@ import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { MENSAJE_BOTON_FLOTANTE, buildWhatsAppUrl } from '@/utils/whatsappTemplates';
 import { trackFloatingWhatsAppClick } from '@/lib/analytics';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 
 export function WhatsAppFloating() {
-  const url = buildWhatsAppUrl(MENSAJE_BOTON_FLOTANTE);
+  const { whatsapp } = useTiendaSettings();
+  const url = buildWhatsAppUrl(MENSAJE_BOTON_FLOTANTE, whatsapp.numero);
 
   return (
     <aside aria-label="Contacto rápido" className="fixed bottom-24 sm:bottom-6 right-5 sm:right-6 z-50 group">

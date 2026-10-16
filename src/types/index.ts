@@ -1,4 +1,4 @@
-// Tipos alineados al negocio y futuro esquema de Supabase
+// Tipos alineados al negocio y esquema oficial de Supabase
 
 export type CertificacionCasco = 'DOT' | 'ECE 22.05' | 'ECE 22.06' | 'SNELL' | 'N/A';
 
@@ -95,11 +95,11 @@ export interface TiendaFisica {
   id: string;
   nombre: string;
   direccion: string;
-  distrito: string;
-  ciudad: string;
-  referencia: string;
+  distrito?: string;
+  ciudad?: string;
+  referencia?: string;
   horario: string;
-  telefonoWhatsApp: string;
+  telefonoWhatsApp?: string;
   mapsUrl: string;
 }
 
@@ -120,9 +120,50 @@ export interface PromoEspecial {
   titulo: string;
   subtitulo: string;
   vigencia: string;
+  fechaFin?: string;
   tipo: string;
   bannerDesktop: string;
   bannerMobile: string;
   descripcion: string;
   productos: Producto[];
+}
+
+export interface RedesSociales {
+  facebook?: string;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+}
+
+export interface DatosEmpresa {
+  razonSocial: string;
+  ruc: string;
+  correo: string;
+  nombreComercial: string;
+  direccionPrincipal: string;
+  horarioPrincipal: string;
+  telefono: string;
+  whatsapp: string;
+}
+
+export interface AjustesNegocio {
+  empresa: DatosEmpresa;
+  whatsapp: {
+    numero: string;
+    numeroCompleto: string;
+    url: string;
+  };
+  tiendasFisicas: TiendaFisica[];
+  redes: RedesSociales;
+  barraSuperior: {
+    texto: string;
+    enlace: string;
+    activo: boolean;
+  };
+  tiendaEnPreparacion: {
+    activo: boolean;
+    mensaje: string;
+    mostrar_tiendas?: boolean;
+    mostrar_whatsapp?: boolean;
+  };
 }

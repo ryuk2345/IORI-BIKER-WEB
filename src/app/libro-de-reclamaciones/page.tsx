@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, CheckCircle2, AlertCircle, Send, Printer, Loader2, ShieldCheck, Mail } from 'lucide-react';
-import { DATOS_NEGOCIO } from '@/data/mock';
+import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 
 export default function LibroReclamacionesPage() {
+  const { empresa } = useTiendaSettings();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
@@ -113,9 +114,9 @@ export default function LibroReclamacionesPage() {
               </div>
             </div>
             <div className="text-left sm:text-right text-xs text-zinc-500">
-              <p className="font-bold text-zinc-900">Razón Social: IORI SAC</p>
-              <p>RUC: 20610816089</p>
-              <p>Dirección: Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima</p>
+              <p className="font-bold text-zinc-900">Razón Social: {empresa.razonSocial}</p>
+              <p>RUC: {empresa.ruc}</p>
+              <p>Dirección: {empresa.direccionPrincipal}</p>
             </div>
           </div>
 

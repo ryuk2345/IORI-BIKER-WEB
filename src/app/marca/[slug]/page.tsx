@@ -2,8 +2,7 @@ import React, { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { CatalogView } from '@/components/catalog/CatalogView';
-import { getMarcas } from '@/lib/data/supabase-data';
-import { MARCAS } from '@/data/mock';
+import { getMarcas, getProductos } from '@/lib/data/supabase-data';
 
 export const revalidate = 60;
 
@@ -14,7 +13,7 @@ interface MarcaPageProps {
 export async function generateMetadata({ params }: MarcaPageProps): Promise<Metadata> {
   const { slug } = await params;
   const marcas = await getMarcas();
-  const marca = marcas.find((m) => m.slug === slug) || MARCAS.find((m) => m.slug === slug);
+  const marca = marcas.find((m) => m.slug === slug);
 
   if (!marca) {
     return {
@@ -45,12 +44,17 @@ export async function generateMetadata({ params }: MarcaPageProps): Promise<Meta
 
 export default async function MarcaPage({ params }: MarcaPageProps) {
   const { slug } = await params;
-  const marcas = await getMarcas();
-  const marca = marcas.find((m) => m.slug === slug) || MARCAS.find((m) => m.slug === slug);
+  const [marcas, productos] = await Promise.all([
+    getMarcas(),
+    getProductos(),
+  ]);
+  const marca = marcas.find((m) => m.slug === slug);
 
   if (!marca) {
     notFound();
   }
+
+  const productosMarca = productos.filter((p) => p.marcaId === marca.id);
 
   return (
     <Suspense fallback={<div className="p-12 text-center text-sm font-bold uppercase tracking-wider text-zinc-500">Cargando marca...</div>}>
@@ -58,6 +62,8 @@ export default async function MarcaPage({ params }: MarcaPageProps) {
         initialTitle={`Productos ${marca.nombre}`}
         initialDescription={`Catálogo oficial de productos, repuestos y accesorios de la marca ${marca.nombre} en Perú.`}
         forcedMarcaSlug={marca.slug}
+        initialProductos={productosMarca}
+        initialMarcas={marcas}
       />
     </Suspense>
   );

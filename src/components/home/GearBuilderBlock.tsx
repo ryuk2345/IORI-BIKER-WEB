@@ -71,8 +71,8 @@ export function GearBuilderBlock({
 }: GearBuilderBlockProps) {
   const [selectedPointId, setSelectedPointId] = useState<string>(puntos[0]?.id || 'casco');
 
-  // Ocultar si no hay puntos configurados
-  if (!puntos || puntos.length === 0) {
+  // Ocultar si no hay puntos configurados o no hay productos cargados en la base de datos
+  if (!puntos || puntos.length === 0 || !productos || productos.length === 0) {
     return null;
   }
 

@@ -4,7 +4,6 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SlidersHorizontal, X, ChevronRight } from 'lucide-react';
-import { PRODUCTOS, CATEGORIAS, MARCAS } from '@/data/mock';
 import { ProductCard } from '@/components/product/ProductCard';
 import { Producto, Categoria, Marca } from '@/types';
 
@@ -33,13 +32,13 @@ export function CatalogView({
   isOnlyNew = false,
   isOnlyCombos = false,
   isOnlyOutlet = false,
-  initialProductos,
-  initialCategorias,
-  initialMarcas,
+  initialProductos = [],
+  initialCategorias = [],
+  initialMarcas = [],
 }: CatalogViewProps) {
-  const productosList = initialProductos && initialProductos.length > 0 ? initialProductos : PRODUCTOS;
-  const categoriasList = initialCategorias && initialCategorias.length > 0 ? initialCategorias : CATEGORIAS;
-  const marcasList = initialMarcas && initialMarcas.length > 0 ? initialMarcas : MARCAS;
+  const productosList = initialProductos;
+  const categoriasList = initialCategorias;
+  const marcasList = initialMarcas;
 
   const router = useRouter();
   const searchParams = useSearchParams();

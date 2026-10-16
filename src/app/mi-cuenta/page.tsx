@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPEN } from '@/utils/currency';
-import { DATOS_NEGOCIO } from '@/data/mock';
 
 export default function MiCuentaPage() {
   const [user, setUser] = useState<any | null>(null);

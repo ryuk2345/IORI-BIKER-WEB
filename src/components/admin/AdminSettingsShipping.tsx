@@ -21,7 +21,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
-  Sparkles
+  Sparkles,
+  Share2,
+  MapPin
 } from 'lucide-react';
 import { saveAdminSetting, saveAdminShipping } from '@/lib/services/admin-service';
 import { formatPEN } from '@/utils/currency';
@@ -113,6 +115,45 @@ export function AdminSettingsShipping({
   const [barraEnlace, setBarraEnlace] = useState(barraSup.enlace);
   const [barraActivo, setBarraActivo] = useState(Boolean(barraSup.activo));
 
+  // Redes Sociales Oficiales
+  const redesData = settings.redes_sociales || {
+    instagram: 'https://instagram.com/ioribikershop',
+    tiktok: 'https://tiktok.com/@ioribikershop',
+    facebook: 'https://facebook.com/ioribikershop',
+  };
+  const [instagram, setInstagram] = useState(redesData.instagram || 'https://instagram.com/ioribikershop');
+  const [tiktok, setTiktok] = useState(redesData.tiktok || 'https://tiktok.com/@ioribikershop');
+  const [facebook, setFacebook] = useState(redesData.facebook || 'https://facebook.com/ioribikershop');
+
+  // Tiendas Físicas
+  const tiendasDefault = [
+    {
+      id: 'independencia',
+      nombre: 'Sede Independencia (Principal)',
+      direccion: 'Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima',
+      distrito: 'Independencia',
+      horario: 'Lunes a Sábado 9:00 am – 10:00 pm / Domingos y Feriados 11:00 am – 8:00 pm',
+      referencia: 'A pocas cuadras de la estación del Metropolitano Tahuantinsuyo',
+      mapsUrl: 'https://maps.google.com/?q=Av.+Contisuyo+418,+Independencia,+Lima',
+      telefonoWhatsApp: '+51 905 445 698',
+    },
+    {
+      id: 'la-victoria',
+      nombre: 'Sede La Victoria',
+      direccion: 'Av. Nicolás Arriola 901, La Victoria, Lima',
+      distrito: 'La Victoria',
+      horario: 'Lunes a Sábado 9:00 am – 6:00 pm',
+      referencia: 'En plena zona comercial repuestera de Arriola',
+      mapsUrl: 'https://maps.google.com/?q=Av.+Nicolás+Arriola+901,+La+Victoria,+Lima',
+      telefonoWhatsApp: '+51 905 445 698',
+    },
+  ];
+  const [tiendasList, setTiendasList] = useState<any[]>(
+    Array.isArray(settings.tiendas_fisicas) && settings.tiendas_fisicas.length > 0
+      ? settings.tiendas_fisicas
+      : tiendasDefault
+  );
+
   // -------------------------------------------------------------
   // 2. Datos de Pago
   // -------------------------------------------------------------
@@ -192,7 +233,15 @@ export function AdminSettingsShipping({
         url: `https://wa.me/51${wspNumero}`,
       });
 
-      showToast('Datos del negocio actualizados exitosamente', 'success');
+      await saveAdminSetting('redes_sociales', {
+        instagram,
+        tiktok,
+        facebook,
+      });
+
+      await saveAdminSetting('tiendas_fisicas', tiendasList);
+
+      showToast('Datos del negocio, redes y tiendas actualizados exitosamente', 'success');
       onRefresh();
     } catch (err: any) {
       showToast('Error: ' + err.message, 'error');
@@ -515,6 +564,198 @@ export function AdminSettingsShipping({
                 className="w-full px-3 py-2 border border-zinc-200 rounded-xl bg-zinc-50 font-mono text-xs"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Redes Sociales Oficiales */}
+        <div className="pt-4 border-t border-zinc-100 space-y-3">
+          <div className="flex items-center gap-2">
+            <Share2 className="w-4 h-4 text-[#F58220]" />
+            <span className="font-bold text-xs uppercase tracking-wider text-zinc-800">
+              Redes Sociales Oficiales
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label className="font-bold text-zinc-700 block mb-1">Instagram</label>
+              <input
+                type="text"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="https://instagram.com/ioribikershop"
+                className="w-full px-3 py-2 border border-zinc-200 rounded-xl bg-zinc-50"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-zinc-700 block mb-1">TikTok</label>
+              <input
+                type="text"
+                value={tiktok}
+                onChange={(e) => setTiktok(e.target.value)}
+                placeholder="https://tiktok.com/@ioribikershop"
+                className="w-full px-3 py-2 border border-zinc-200 rounded-xl bg-zinc-50"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-zinc-700 block mb-1">Facebook</label>
+              <input
+                type="text"
+                value={facebook}
+                onChange={(e) => setFacebook(e.target.value)}
+                placeholder="https://facebook.com/ioribikershop"
+                className="w-full px-3 py-2 border border-zinc-200 rounded-xl bg-zinc-50"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tiendas Físicas */}
+        <div className="pt-4 border-t border-zinc-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#F58220]" />
+              <span className="font-bold text-xs uppercase tracking-wider text-zinc-800">
+                Tiendas Físicas ({tiendasList.length})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTiendasList([
+                  ...tiendasList,
+                  {
+                    id: `tienda-${Date.now()}`,
+                    nombre: 'Nueva Sede',
+                    direccion: '',
+                    distrito: '',
+                    horario: '',
+                    referencia: '',
+                    mapsUrl: '',
+                    telefonoWhatsApp: wspNumero,
+                  },
+                ]);
+              }}
+              className="text-[11px] font-bold text-[#F58220] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Agregar Sede</span>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {tiendasList.map((t, idx) => (
+              <div key={t.id || idx} className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-black uppercase tracking-wider text-zinc-800 text-[11px]">
+                    Sede #{idx + 1}
+                  </span>
+                  {tiendasList.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setTiendasList(tiendasList.filter((_, i) => i !== idx))}
+                      className="text-red-500 hover:text-red-700 p-1 rounded cursor-pointer"
+                      title="Eliminar sede"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-bold text-zinc-700 block mb-1">Nombre de la Sede</label>
+                    <input
+                      type="text"
+                      value={t.nombre}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].nombre = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-700 block mb-1">Distrito / Ciudad</label>
+                    <input
+                      type="text"
+                      value={t.distrito}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].distrito = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-700 block mb-1">WhatsApp / Contacto</label>
+                    <input
+                      type="text"
+                      value={t.telefonoWhatsApp}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].telefonoWhatsApp = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-zinc-700 block mb-1">Dirección Exacta</label>
+                    <input
+                      type="text"
+                      value={t.direccion}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].direccion = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-700 block mb-1">Referencia</label>
+                    <input
+                      type="text"
+                      value={t.referencia}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].referencia = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-zinc-700 block mb-1">Horario de Atención</label>
+                    <input
+                      type="text"
+                      value={t.horario}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].horario = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-700 block mb-1">Google Maps URL</label>
+                    <input
+                      type="text"
+                      value={t.mapsUrl}
+                      onChange={(e) => {
+                        const updated = [...tiendasList];
+                        updated[idx].mapsUrl = e.target.value;
+                        setTiendasList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 border border-zinc-200 rounded-lg bg-white font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

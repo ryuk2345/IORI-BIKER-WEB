@@ -1,5 +1,4 @@
 import React from 'react';
-import { CATEGORIAS } from '@/data/mock';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { CategoryTile } from '@/components/ui/CategoryTile';
 import { Categoria, Producto } from '@/types';
@@ -9,9 +8,13 @@ interface CategoryCardsGridProps {
   productos?: Producto[];
 }
 
-export function CategoryCardsGrid({ categorias = CATEGORIAS, productos = [] }: CategoryCardsGridProps) {
-  // Asegurar las 8 categorías oficiales
-  const listaCategorias = categorias && categorias.length > 0 ? categorias.slice(0, 8) : CATEGORIAS.slice(0, 8);
+export function CategoryCardsGrid({ categorias = [], productos = [] }: CategoryCardsGridProps) {
+  // Si no hay categorías en la base de datos, no renderizar sección vacía
+  if (!categorias || categorias.length === 0) {
+    return null;
+  }
+
+  const listaCategorias = categorias.slice(0, 8);
 
   return (
     <section className="section-py bg-white">

@@ -4,13 +4,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Search, User, ShoppingBag, Menu, X, ArrowRight } from 'lucide-react';
+import { Search, User, ShoppingBag, Menu, X, ArrowRight, Loader2 } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
-import { PRODUCTOS, CATEGORIAS, MARCAS } from '@/data/mock';
 import { formatPEN } from '@/utils/currency';
+import { createClient } from '@/lib/supabase/client';
+import { CONFIG_TECNICA } from '@/config/tienda';
 
 interface HeaderProps {
   onOpenMobileNav: () => void;
+}
+
+interface SearchProductResult {
+  id: string;
+  nombre: string;
+  slug: string;
+  precio: number;
+  imagenUrl?: string;
+}
+
+interface SearchCategoryResult {
+  id: string;
+  nombre: string;
+  slug: string;
+}
+
+interface SearchBrandResult {
+  id: string;
+  nombre: string;
+  slug: string;
 }
 
 export function Header({ onOpenMobileNav }: HeaderProps) {
@@ -19,6 +40,13 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Resultados obtenidos en vivo de Supabase
+  const [filteredProducts, setFilteredProducts] = useState<SearchProductResult[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<SearchCategoryResult[]>([]);
+  const [filteredBrands, setFilteredBrands] = useState<SearchBrandResult[]>([]);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,6 +83,78 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
     }
   }, [isMobileSearchExpanded]);
 
+  // Consulta en vivo a Supabase con debouncing técnico
+  useEffect(() => {
+    const query = searchTerm.trim();
+    if (query.length < CONFIG_TECNICA.MIN_BUSQUEDA_CARACTERES) {
+      setFilteredProducts([]);
+      setFilteredCategories([]);
+      setFilteredBrands([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        
+        const [prodsRes, catsRes, brandsRes] = await Promise.all([
+          supabase
+            .from('productos')
+            .select('id, nombre, slug, precio, precio_oferta, producto_imagenes(url)')
+            .ilike('nombre', `%${query}%`)
+            .eq('activo', true)
+            .limit(4),
+          supabase
+            .from('categorias')
+            .select('id, nombre, slug')
+            .ilike('nombre', `%${query}%`)
+            .eq('activo', true)
+            .limit(3),
+          supabase
+            .from('marcas')
+            .select('id, nombre, slug')
+            .ilike('nombre', `%${query}%`)
+            .eq('activo', true)
+            .limit(3),
+        ]);
+
+        if (prodsRes.data) {
+          setFilteredProducts(
+            prodsRes.data.map((p: any) => ({
+              id: p.id,
+              nombre: p.nombre,
+              slug: p.slug,
+              precio: p.precio_oferta || p.precio,
+              imagenUrl: p.producto_imagenes?.[0]?.url,
+            }))
+          );
+        } else {
+          setFilteredProducts([]);
+        }
+
+        if (catsRes.data) {
+          setFilteredCategories(catsRes.data);
+        } else {
+          setFilteredCategories([]);
+        }
+
+        if (brandsRes.data) {
+          setFilteredBrands(brandsRes.data);
+        } else {
+          setFilteredBrands([]);
+        }
+      } catch (err) {
+        console.error('Error al buscar en Supabase:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, CONFIG_TECNICA.DEBOUNCE_BUSQUEDA_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -64,26 +164,6 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
     }
   };
 
-  // Filtrado reactivo en vivo
-  const filteredProducts = searchTerm.trim().length >= 2
-    ? PRODUCTOS.filter((p) =>
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoriaNombre.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 4)
-    : [];
-
-  const filteredCategories = searchTerm.trim().length >= 2
-    ? CATEGORIAS.filter((c) =>
-        c.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 3)
-    : [];
-
-  const filteredBrands = searchTerm.trim().length >= 2
-    ? MARCAS.filter((m) =>
-        m.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 3)
-    : [];
-
   const hasResults =
     filteredProducts.length > 0 ||
     filteredCategories.length > 0 ||
@@ -92,7 +172,7 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full bg-[#111111] text-white border-b border-zinc-800 transition-all duration-300">
       <div className="container-iori">
-        {/* FILA PRINCIPAL: Compacta en scroll */}
+        {/* FILA PRINCIPAL */}
         <div
           className={`flex items-center justify-between gap-3 md:gap-6 transition-all duration-300 ${
             isScrolled ? 'h-14 md:h-16' : 'h-16 md:h-20'
@@ -132,7 +212,7 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
             </div>
           </Link>
 
-          {/* DESKTOP: Buscador ancho con sugerencias en vivo */}
+          {/* DESKTOP: Buscador conectado directamente a Supabase */}
           <div ref={searchRef} className="relative flex-1 max-w-xl mx-2 hidden md:block">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <input
@@ -150,15 +230,24 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
                 type="submit"
                 className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#F58220] hover:bg-[#E07216] text-[#111111] font-heading font-bold text-12 uppercase px-3 py-1.5 rounded-[2px] flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <Search className="w-3.5 h-3.5" />
+                {isSearching ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
                 <span>Buscar</span>
               </button>
             </form>
 
-            {/* Dropdown de autocompletado en vivo */}
-            {isSearchOpen && searchTerm.trim().length >= 2 && (
+            {/* Dropdown de autocompletado en vivo desde Supabase */}
+            {isSearchOpen && searchTerm.trim().length >= CONFIG_TECNICA.MIN_BUSQUEDA_CARACTERES && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-[#1C1C20] border border-zinc-700 rounded-[4px] shadow-2xl overflow-hidden z-50 animate-in fade-in duration-150">
-                {hasResults ? (
+                {isSearching && !hasResults ? (
+                  <div className="p-4 text-center text-zinc-400 flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#F58220]" />
+                    <span className="text-12 font-medium">Buscando en catálogo...</span>
+                  </div>
+                ) : hasResults ? (
                   <div className="p-4 space-y-3 max-h-[380px] overflow-y-auto">
                     {/* Productos sugeridos */}
                     {filteredProducts.length > 0 && (
@@ -175,13 +264,17 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
                               className="flex items-center gap-3 p-2 rounded-[2px] hover:bg-zinc-800/80 transition-colors group"
                             >
                               <div className="w-10 h-10 bg-white rounded-[2px] shrink-0 flex items-center justify-center overflow-hidden p-1">
-                                <Image
-                                  src={prod.imagenes[0]}
-                                  alt={prod.nombre}
-                                  width={40}
-                                  height={40}
-                                  className="object-contain w-full h-full"
-                                />
+                                {prod.imagenUrl ? (
+                                  <Image
+                                    src={prod.imagenUrl}
+                                    alt={prod.nombre}
+                                    width={40}
+                                    height={40}
+                                    className="object-contain w-full h-full"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-zinc-200" />
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-12 text-zinc-200 group-hover:text-[#F58220] font-medium truncate">
@@ -267,7 +360,7 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
             )}
           </div>
 
-          {/* LADO DERECHO: Desktop (Ofertas, Mi Cuenta, Carrito con monto) | Móvil (Buscar, Carrito) */}
+          {/* LADO DERECHO */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             {/* Móvil: Botón de búsqueda */}
             <button
@@ -322,7 +415,7 @@ export function Header({ onOpenMobileNav }: HeaderProps) {
           </div>
         </div>
 
-        {/* MÓVIL: Buscador colapsable limpio */}
+        {/* MÓVIL: Buscador colapsable */}
         {isMobileSearchExpanded && (
           <div className="md:hidden pb-3 pt-1 border-t border-zinc-800 animate-in fade-in slide-in-from-top-2 duration-150">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
