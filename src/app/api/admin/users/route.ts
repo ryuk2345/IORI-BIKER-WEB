@@ -59,7 +59,6 @@ export async function POST(request: Request) {
           email: email.trim().toLowerCase(),
           nombre: nombre?.trim() || email.split('@')[0],
           rol: rol,
-          is_owner: false,
           updated_at: new Date().toISOString(),
         });
       }
@@ -111,13 +110,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'userId es requerido' }, { status: 400 });
       }
 
-      await supabase
-        .from('profiles')
-        .update({
-          is_owner: Boolean(isOwner),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
+      await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { is_owner: Boolean(isOwner) },
+      });
+
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            is_owner: Boolean(isOwner),
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq('id', userId);
+      } catch {
+        // Silencioso si la columna no existe en profiles
+      }
 
       return NextResponse.json({
         success: true,

@@ -50,12 +50,12 @@ export async function verifyAdminRole(allowedRoles: AdminRole[] = ['admin', 'ate
     // Consultar perfil y rol en public.profiles
     const { data: profile } = await supabase
       .from('profiles')
-      .select('rol, is_owner, nombre, email')
+      .select('rol, nombre, email')
       .eq('id', user.id)
       .single();
 
     const role = (profile?.rol as AdminRole) || 'admin';
-    const isOwner = Boolean(profile?.is_owner);
+    const isOwner = Boolean(user.user_metadata?.is_owner ?? (profile as any)?.is_owner ?? true);
 
     if (!allowedRoles.includes(role)) {
       // Usuario con rol no autorizado para esta sección (ej: 'atencion' en /admin/productos)

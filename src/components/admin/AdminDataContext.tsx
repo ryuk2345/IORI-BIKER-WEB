@@ -78,7 +78,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('rol, is_owner, nombre, email')
+          .select('rol, nombre, email')
           .eq('id', user.id)
           .single();
 
@@ -147,7 +147,7 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
         getAdminPromos().catch(() => []),
         getAdminCoupons().catch(() => []),
         getInboxCount().catch(() => ({ pedidos: 0, financiamiento: 0, postulaciones: 0, contacto: 0, resenas: 0, reclamaciones: 0 })),
-        Promise.resolve(supabase.from('profiles').select('id, email, nombre, rol, is_owner, created_at').in('rol', ['admin', 'atencion'])).catch(() => ({ data: null })),
+        Promise.resolve(supabase.from('profiles').select('id, email, nombre, rol, created_at').in('rol', ['admin', 'atencion'])).catch(() => ({ data: null })),
       ]);
 
       if (Array.isArray(prods)) {
