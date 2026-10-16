@@ -1,1 +1,232 @@
 @import "tailwindcss";
+
+@theme {
+  --color-brand: #F58220;
+  --color-brand-hover: #E07216;
+  --color-ink: #111111;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F5F5F5;
+  --color-border: #E5E5E5;
+  --color-muted: #737373;
+  --color-deal: #E52E2E;
+
+  --font-heading: var(--font-barlow-condensed), sans-serif;
+  --font-sans: var(--font-inter), sans-serif;
+}
+
+:root {
+  --brand: #F58220;
+  --brand-hover: #E07216;
+  --ink: #111111;
+  --surface: #FFFFFF;
+  --surface-subtle: #F5F5F5;
+  --border: #E5E5E5;
+  --muted: #737373;
+  --deal: #E52E2E;
+}
+
+body {
+  color: var(--ink);
+  background-color: var(--surface);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos en MAYÚSCULAS con Barlow Condensed 700 (KTM PowerWear) */
+.title-heading {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+/* Escala fija del sistema de diseño de Iori: 40, 32, 24, 18, 16, 14 y 12 px */
+.text-40 { font-size: 40px; line-height: 1.1; }
+.text-32 { font-size: 32px; line-height: 1.15; }
+.text-24 { font-size: 24px; line-height: 1.2; }
+.text-18 { font-size: 18px; line-height: 1.3; }
+.text-16 { font-size: 16px; line-height: 1.4; }
+.text-14 { font-size: 14px; line-height: 1.4; }
+.text-12 { font-size: 12px; line-height: 1.4; }
+
+/* Contenedor oficial de 1280 px con márgenes de 16 px móvil y 24 px desktop */
+.container-iori {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 768px) {
+  .container-iori {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+/* Separación entre secciones: 64 px en desktop y 40 px en móvil (múltiplos de 8) */
+.section-py {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+@media (min-width: 768px) {
+  .section-py {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+}
+
+/* Botón principal naranja Iori (KTM PowerWear / Direli) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--brand);
+  color: #111111;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 14px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-hover);
+  color: #ffffff;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Botón secundario oscuro */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #111111;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 14px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: 1px solid #111111;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #222222;
+}
+
+/* Botón outline */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  color: #111111;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 14px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: 1px solid #111111;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-outline:hover {
+  background-color: #111111;
+  color: #ffffff;
+}
+
+/* Badges del sistema (máximo 4 px de esquina, máximo 1 badge en tarjeta) */
+.badge-offer {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: var(--brand);
+  color: #111111;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+.badge-new {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: #111111;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+.badge-out {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: #52525B;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+/* Ocultar barra de scroll para chips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Scrollbar estilizado y discreto para páginas */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand);
+}

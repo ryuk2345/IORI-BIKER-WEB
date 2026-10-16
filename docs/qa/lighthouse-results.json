@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Home",
+    "path": "/",
+    "url": "http://localhost:3005/",
+    "performance": 87,
+    "accessibility": 96,
+    "bestPractices": 96,
+    "seo": 100
+  },
+  {
+    "name": "Listado (Catálogo)",
+    "path": "/productos",
+    "url": "http://localhost:3005/productos",
+    "performance": 96,
+    "accessibility": 95,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  {
+    "name": "Ficha de Producto",
+    "path": "/producto/casco-shaft-pro-series-carbono",
+    "url": "http://localhost:3005/producto/casco-shaft-pro-series-carbono",
+    "performance": 84,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  {
+    "name": "Carrito",
+    "path": "/carrito",
+    "url": "http://localhost:3005/carrito",
+    "performance": 93,
+    "accessibility": 94,
+    "bestPractices": 100,
+    "seo": 66
+  }
+]

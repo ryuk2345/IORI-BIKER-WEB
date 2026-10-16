@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 36" fill="none">
+  <!-- Símbolo / Isotipo de aCuotaz: fondo naranja y 'a' blanca -->
+  <rect x="2" y="4" width="28" height="28" rx="7" fill="#F58220" />
+  <path d="M19.5 22.5H21.5V13.5H19.5V15.1C18.8 14.1 17.6 13.5 16.1 13.5C13.6 13.5 11.5 15.5 11.5 18C11.5 20.5 13.6 22.5 16.1 22.5C17.6 22.5 18.8 21.9 19.5 20.9V22.5ZM16.5 20.8C14.9 20.8 13.6 19.5 13.6 18C13.6 16.5 14.9 15.2 16.5 15.2C18.1 15.2 19.4 16.5 19.4 18C19.4 19.5 18.1 20.8 16.5 20.8Z" fill="#FFFFFF" />
+  
+  <!-- Logotipo texto blanco para fondos oscuros -->
+  <text x="36" y="24" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="20" letter-spacing="-0.5px">
+    <tspan fill="#F58220">a</tspan>
+    <tspan fill="#FFFFFF">Cuotaz</tspan>
+  </text>
+</svg>
