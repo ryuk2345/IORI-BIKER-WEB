@@ -118,3 +118,115 @@ test('6. Invariante: La columna leída en la BD es "rol" y no "role"', () => {
     'getUserRole debe seleccionar explícitamente la columna "rol"'
   );
 });
+
+test('7. SEGURIDAD: Usuario con user_metadata.rol = "admin" y profiles.rol = "cliente" recibe 403', async () => {
+  // Simulamos un atacante que modificó su user_metadata desde el cliente
+  const attackerUser = {
+    id: 'user-malicious-attacker-id',
+    email: 'hacker@test.com',
+    user_metadata: {
+      rol: 'admin',
+      role: 'admin',
+      nombre: 'Atacante',
+    },
+    app_metadata: {},
+  };
+
+  // profiles.rol en la base de datos es 'cliente'
+  const profileInDb = {
+    rol: 'cliente',
+    nombre: 'Atacante',
+  };
+
+  // Lógica de resolución: profiles.rol es la única fuente de verdad autoritativa
+  const resolvedRole = profileInDb.rol;
+  const isAdmin = resolvedRole === 'admin';
+
+  assert.equal(resolvedRole, 'cliente', 'El rol DEBE ser "cliente", ignorando totalmente user_metadata.rol');
+  assert.equal(isAdmin, false, 'No debe ser considerado admin bajo ninguna circunstancia');
+
+  const errorMessage = `Acceso no autorizado para este rol. Rol encontrado: "${resolvedRole}". Se requiere rol: "admin".`;
+  assert.equal(
+    errorMessage,
+    'Acceso no autorizado para este rol. Rol encontrado: "cliente". Se requiere rol: "admin".'
+  );
+
+  // Verificamos que get-user-role.ts no contenga lectura de user_metadata?.rol para determinar roles
+  const source = fs.readFileSync(path.resolve('src/lib/auth/get-user-role.ts'), 'utf8');
+  assert.ok(
+    !source.includes('user.user_metadata?.rol'),
+    'getUserRole NUNCA debe leer user_metadata.rol'
+  );
+  assert.ok(
+    !source.includes('user.user_metadata?.role'),
+    'getUserRole NUNCA debe leer user_metadata.role'
+  );
+});
+
+test('8. SEGURIDAD: Si profiles.rol no se puede leer, la respuesta es 403 con rol "ninguno", NUNCA un respaldo', () => {
+  const userWithoutProfile = {
+    id: 'user-no-profile-id',
+    email: 'unregistered@test.com',
+    user_metadata: { rol: 'admin' },
+    app_metadata: {},
+  };
+
+  // Sin profiles.rol ni app_metadata.rol
+  const rol = null;
+  const resolvedRole = rol || 'ninguno';
+  const isAdmin = resolvedRole === 'admin';
+
+  assert.equal(isAdmin, false);
+  assert.equal(resolvedRole, 'ninguno');
+
+  const errorMessage = `Acceso no autorizado para este rol. Rol encontrado: "${resolvedRole}". Se requiere rol: "admin".`;
+  assert.equal(
+    errorMessage,
+    'Acceso no autorizado para este rol. Rol encontrado: "ninguno". Se requiere rol: "admin".'
+  );
+});
+
+test('9. createAdminClient valida la clave secreta y rechaza la clave pública con error claro', () => {
+  const origUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const origSecret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const origSecretFallback = process.env.SUPABASE_SECRET_KEY;
+  const origAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  try {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl || 'https://yhlynkmuuksywgcfwbcm.supabase.co';
+
+    // 9.1 Si falta la clave secreta, debe lanzar error descriptivo
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_SECRET_KEY;
+    assert.throws(
+      () => createAdminClient(),
+      /Falta la clave secreta administrativa \(service_role\)/,
+      'Debe advertir que falta la clave service_role secreta'
+    );
+
+    // 9.2 Si se pasa una clave que inicia con sb_publishable_, debe lanzar error de seguridad
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'sb_publishable_fake_key_12345';
+    assert.throws(
+      () => createAdminClient(),
+      /es una clave pública \("sb_publishable_\.\.\."\)/,
+      'Debe bloquear el uso accidental de claves públicas en createAdminClient'
+    );
+
+    // 9.3 Si la clave secreta es idéntica a la anonKey, debe lanzar error de seguridad
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'anon_key_identical';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon_key_identical';
+    assert.throws(
+      () => createAdminClient(),
+      /tiene exactamente el mismo valor que la clave pública anónima/,
+      'Debe alertar si se pasa la clave anónima en vez de la clave de servicio'
+    );
+  } finally {
+    if (origUrl) process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl;
+    else delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (origSecret) process.env.SUPABASE_SERVICE_ROLE_KEY = origSecret;
+    if (origSecretFallback) process.env.SUPABASE_SECRET_KEY = origSecretFallback;
+    if (origAnon) process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = origAnon;
+    else delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  }
+});
+

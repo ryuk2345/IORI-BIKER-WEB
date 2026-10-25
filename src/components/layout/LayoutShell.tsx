@@ -59,7 +59,6 @@ export function LayoutShell({ children }: LayoutShellProps) {
 
           const rol =
             prof?.rol ||
-            authData.user.user_metadata?.rol ||
             authData.user.app_metadata?.rol ||
             authData.user.app_metadata?.role ||
             'cliente';

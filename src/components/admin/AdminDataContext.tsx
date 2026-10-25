@@ -87,7 +87,7 @@ export function AdminDataProvider({ children, initialUser = null }: AdminDataPro
           .eq('id', user.id)
           .maybeSingle();
 
-        const rol = profile?.rol || user.user_metadata?.rol || user.app_metadata?.rol || user.app_metadata?.role;
+        const rol = profile?.rol || user.app_metadata?.rol || user.app_metadata?.role;
         if (rol === 'admin' || rol === 'atencion') {
           setUser({ ...user, profile: { ...profile, rol } });
         } else {

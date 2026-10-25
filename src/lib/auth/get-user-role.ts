@@ -29,8 +29,9 @@ export interface AuthVerificationResult {
  * 1. Toma el usuario de la sesión con supabase.auth.getUser() (Cookies de sesión o Bearer token).
  * 2. Lee profiles.rol de ese ID con los clientes autorizados:
  *    - Sesión del usuario con política RLS (id = auth.uid())
- *    - Cliente de servidor con clave secreta filtrando por ese ID
- *    - Fallback a metadatos de sesión (user_metadata / app_metadata)
+ *    - Cliente de servidor con clave secreta (bypass RLS) filtrando por ese ID
+ *    - app_metadata de servidor solo si no se encuentra en profiles
+ *    - NUNCA se lee user_metadata (vulnerabilidad de escalación de privilegios en cliente).
  * 3. Garantiza que la respuesta sea determinista y segura.
  */
 export async function getUserRole(req?: NextRequest): Promise<GetUserRoleResult> {
@@ -131,35 +132,35 @@ export async function getUserRole(req?: NextRequest): Promise<GetUserRoleResult>
         .eq('id', user.id)
         .maybeSingle();
 
-      if (!adminErr && profileAdmin?.rol) {
+      if (adminErr) {
+        console.error('[getUserRole] Error al consultar profiles con adminSupabase:', adminErr.message || adminErr);
+      } else if (profileAdmin?.rol) {
         rol = String(profileAdmin.rol).trim().toLowerCase();
         nombre = profileAdmin.nombre || null;
       }
-    } catch {
-      // Intentar siguiente estrategia
+    } catch (err: any) {
+      console.error('[getUserRole] Error al inicializar adminSupabase:', err.message || err);
     }
   }
 
-  // Estrategia C: Fallback a metadatos de Supabase Auth
-  if (!rol) {
-    const metaRol =
-      user.user_metadata?.rol ||
-      user.app_metadata?.rol ||
-      user.user_metadata?.role ||
-      user.app_metadata?.role;
-    if (metaRol) {
-      rol = String(metaRol).trim().toLowerCase();
+  // Si no se pudo leer profiles.rol, solo se permite app_metadata (gestionado exclusivamente en el servidor).
+  // NUNCA se lee user_metadata porque el cliente puede editarlo libremente desde el navegador.
+  if (!rol && user.app_metadata) {
+    const serverAppRole = user.app_metadata.rol || user.app_metadata.role;
+    if (serverAppRole) {
+      rol = String(serverAppRole).trim().toLowerCase();
     }
   }
 
-  // Rol resuelto
-  const resolvedRole = rol || 'cliente';
+  // Si profiles.rol no existe ni se pudo leer, el rol es 'ninguno' (o el rol exacto de profiles si fue leído).
+  // La autorización fallará con 403.
+  const resolvedRole = rol || 'ninguno';
   const isAdmin = resolvedRole === 'admin';
   const isAtencion = resolvedRole === 'atencion';
   const isStaff = isAdmin || isAtencion;
 
   return {
-    user: { ...user, nombre: nombre || user.user_metadata?.nombre },
+    user: { ...user, nombre: nombre || user.user_metadata?.nombre || user.email?.split('@')[0] },
     userId: user.id,
     email: user.email || null,
     rol: resolvedRole,

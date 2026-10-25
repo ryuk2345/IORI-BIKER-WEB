@@ -43,7 +43,6 @@ export function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
 
         const rol =
           profile?.rol ||
-          data.user.user_metadata?.rol ||
           data.user.app_metadata?.rol ||
           data.user.app_metadata?.role;
 
