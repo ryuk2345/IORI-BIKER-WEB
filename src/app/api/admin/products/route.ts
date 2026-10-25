@@ -3,6 +3,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { verifyAdminOnly } from '@/lib/security/auth-check';
 
+/** Traduce errores de Supabase a mensajes accionables para el panel */
+function toErrorMessage(err: any): string {
+  if (err?.code === '42501' || /row-level security/i.test(err?.message || '')) {
+    return 'Supabase rechazó la escritura por reglas RLS: el servidor no está usando la clave secreta. ' +
+      'Revisa SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY en Netlify y vuelve a desplegar.';
+  }
+  return err?.message || 'Error desconocido al guardar el producto.';
+}
+
 /** Guardar o crear producto (POST) */
 export async function POST(req: NextRequest) {
   try {
@@ -152,9 +161,14 @@ export async function POST(req: NextRequest) {
       savedProductId = data.id;
     }
 
-    // Guardar variantes si se envían
+    // Guardar variantes (los errores se propagan: nunca fallar en silencio)
+    const { error: delVarError } = await adminSupabase
+      .from('producto_variantes')
+      .delete()
+      .eq('producto_id', savedProductId);
+    if (delVarError) throw delVarError;
+
     if (hasVariants) {
-      await adminSupabase.from('producto_variantes').delete().eq('producto_id', savedProductId);
       const varRows = body.variantes.map((v: any) => ({
         producto_id: savedProductId,
         sku: v.sku.trim().toUpperCase(),
@@ -164,10 +178,30 @@ export async function POST(req: NextRequest) {
         stock: v.stock || 0,
         precio_ajuste: v.precio_ajuste || 0,
       }));
-      await adminSupabase.from('producto_variantes').insert(varRows);
-    } else {
-      // Si antes tenía variantes y ahora es simple, limpiar variantes
-      await adminSupabase.from('producto_variantes').delete().eq('producto_id', savedProductId);
+      const { error: insVarError } = await adminSupabase.from('producto_variantes').insert(varRows);
+      if (insVarError) throw insVarError;
+    }
+
+    // Guardar fotos en producto_imagenes (la tienda las lee de ahí)
+    if (Array.isArray(body.imagenes)) {
+      const { error: delImgError } = await adminSupabase
+        .from('producto_imagenes')
+        .delete()
+        .eq('producto_id', savedProductId);
+      if (delImgError) throw delImgError;
+
+      const imgRows = body.imagenes
+        .filter((img: any) => img && typeof img.url === 'string' && img.url.trim())
+        .map((img: any, idx: number) => ({
+          producto_id: savedProductId,
+          url: img.url.trim(),
+          orden: idx + 1,
+          alt: body.nombre || null,
+        }));
+      if (imgRows.length > 0) {
+        const { error: insImgError } = await adminSupabase.from('producto_imagenes').insert(imgRows);
+        if (insImgError) throw insImgError;
+      }
     }
 
     // Revalidar caché de Next.js
@@ -178,7 +212,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, id: savedProductId });
   } catch (err: any) {
     console.error('Error en POST /api/admin/products:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: toErrorMessage(err) }, { status: 500 });
   }
 }
 
@@ -217,7 +251,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: toErrorMessage(err) }, { status: 500 });
   }
 }
 
@@ -242,6 +276,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: toErrorMessage(err) }, { status: 500 });
   }
 }
