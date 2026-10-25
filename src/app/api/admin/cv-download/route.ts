@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     // Seguridad: Un visitante no puede descargar ni leer CVs
     const auth = await verifyStaffAuth(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: 'Acceso no autorizado. Se requiere sesión de personal autorizada.' }, { status: 401 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { searchParams } = new URL(req.url);

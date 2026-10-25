@@ -39,14 +39,20 @@ export function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
           .from('profiles')
           .select('rol, nombre')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profile?.rol !== 'admin' && profile?.rol !== 'atencion') {
+        const rol =
+          profile?.rol ||
+          data.user.user_metadata?.rol ||
+          data.user.app_metadata?.rol ||
+          data.user.app_metadata?.role;
+
+        if (rol !== 'admin' && rol !== 'atencion') {
           await supabase.auth.signOut();
           throw new Error('Esta cuenta no tiene permisos de Administrador o Atención al Cliente.');
         }
 
-        onLoginSuccess({ ...data.user, profile });
+        onLoginSuccess({ ...data.user, profile: { ...profile, rol } });
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al iniciar sesión.');

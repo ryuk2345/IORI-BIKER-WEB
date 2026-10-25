@@ -44,9 +44,15 @@ export interface AdminDataContextType {
 
 const AdminDataContext = createContext<AdminDataContextType | null>(null);
 
-export function AdminDataProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+interface AdminDataProviderProps {
+  children: React.ReactNode;
+  initialUser?: any;
+  initialRole?: string | null;
+}
+
+export function AdminDataProvider({ children, initialUser = null }: AdminDataProviderProps) {
+  const [user, setUser] = useState<any | null>(initialUser);
+  const [checkingAuth, setCheckingAuth] = useState(!initialUser);
   const [loadingData, setLoadingData] = useState(false);
 
   const [products, setProducts] = useState<any[]>([]);
@@ -79,10 +85,11 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('rol, nombre, email')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (profile?.rol === 'admin' || profile?.rol === 'atencion') {
-          setUser({ ...user, profile });
+        const rol = profile?.rol || user.user_metadata?.rol || user.app_metadata?.rol || user.app_metadata?.role;
+        if (rol === 'admin' || rol === 'atencion') {
+          setUser({ ...user, profile: { ...profile, rol } });
         } else {
           setUser(null);
         }

@@ -1,7 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { ADMIN_ROUTES } from '@/lib/routes/admin-routes';
+import { getUserRole } from '@/lib/auth/get-user-role';
 
 export type AdminRole = 'admin' | 'atencion';
 
@@ -14,42 +13,32 @@ export interface AdminServerSession {
 }
 
 /**
- * Verifica el rol del usuario en el servidor para layouts y server components del admin.
+ * Verifica el rol del usuario en el servidor para layouts y server components del admin usando getUserRole().
  * Si el rol no está permitido (por ejemplo, 'atencion' queriendo entrar a productos),
  * redirige inmediatamente a la sección permitida (/admin/pedidos).
- * Si no hay sesión válida, redirige a /admin (donde se solicita login).
+ * Si no hay sesión válida, retorna null.
  */
 export async function verifyAdminRole(allowedRoles: AdminRole[] = ['admin', 'atencion']): Promise<AdminServerSession | null> {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const result = await getUserRole();
 
-    if (authError || !user) {
-      // Sin sesión de Supabase: redirigir a /admin si estamos en una subruta
+    if (!result.user || !result.userId) {
       return null;
     }
 
-    // Consultar perfil y rol en public.profiles
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('rol, nombre, email')
-      .eq('id', user.id)
-      .single();
-
-    const role = (profile?.rol as AdminRole) || 'admin';
-    const isOwner = Boolean(user.user_metadata?.is_owner ?? (profile as any)?.is_owner ?? true);
+    const role = (result.rol as AdminRole) || 'cliente';
+    const isOwner = Boolean(result.user.user_metadata?.is_owner ?? true);
 
     if (!allowedRoles.includes(role)) {
-      // Usuario con rol no autorizado para esta sección (ej: 'atencion' en /admin/productos)
       redirect(ADMIN_ROUTES.PEDIDOS);
     }
 
     return {
-      userId: user.id,
-      email: user.email || profile?.email || '',
+      userId: result.userId,
+      email: result.email || '',
       role,
       isOwner,
-      nombre: profile?.nombre || user.email?.split('@')[0],
+      nombre: result.user.nombre || result.email?.split('@')[0],
     };
   } catch (err: any) {
     if (err?.digest?.startsWith('NEXT_REDIRECT')) {

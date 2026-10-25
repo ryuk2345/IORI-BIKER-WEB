@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await verifyAdminOnly(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error || 'No autorizado' }, { status: 403 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const adminSupabase = createAdminClient();
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await verifyAdminOnly(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error || 'No autorizado' }, { status: 403 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const body = await req.json();
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const auth = await verifyAdminOnly(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error || 'No autorizado' }, { status: 403 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const body = await req.json();
@@ -141,7 +141,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const auth = await verifyAdminOnly(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error || 'No autorizado' }, { status: 403 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { searchParams } = new URL(req.url);

@@ -71,11 +71,15 @@ export async function getAdminProducts() {
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+  } catch (e) {
+    // Continuar con cookies de sesión que el navegador envía automáticamente
   }
   return headers;
 }
@@ -89,6 +93,7 @@ export async function updateProductQuick(
   const res = await fetch('/api/admin/products', {
     method: 'PATCH',
     headers,
+    credentials: 'same-origin',
     body: JSON.stringify({ id, updates }),
   });
 
@@ -105,6 +110,7 @@ export async function saveProduct(product: ProductoAdminInput) {
   const res = await fetch('/api/admin/products', {
     method: 'POST',
     headers,
+    credentials: 'same-origin',
     body: JSON.stringify(product),
   });
 
@@ -121,6 +127,7 @@ export async function deleteProduct(id: string) {
   const res = await fetch(`/api/admin/products?id=${id}`, {
     method: 'DELETE',
     headers,
+    credentials: 'same-origin',
   });
 
   const data = await res.json();

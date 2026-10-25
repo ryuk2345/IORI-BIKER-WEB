@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { verifyAdminOnly } from '@/lib/security/auth-check';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await verifyAdminOnly(req);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const supabase = createAdminClient();
 
     // 1. Obtener lista de usuarios de Auth
@@ -26,8 +32,13 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const auth = await verifyAdminOnly(request);
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const supabase = createAdminClient();
     const body = await request.json();
     const { action, email, nombre, rol, userId, newEmail, isOwner } = body;

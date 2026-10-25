@@ -55,9 +55,14 @@ export function LayoutShell({ children }: LayoutShellProps) {
             .from('profiles')
             .select('rol')
             .eq('id', authData.user.id)
-            .single();
+            .maybeSingle();
 
-          const rol = prof?.rol || authData.user.user_metadata?.rol || 'cliente';
+          const rol =
+            prof?.rol ||
+            authData.user.user_metadata?.rol ||
+            authData.user.app_metadata?.rol ||
+            authData.user.app_metadata?.role ||
+            'cliente';
           if (rol === 'admin' || rol === 'atencion') {
             setIsAdminUser(true);
           }

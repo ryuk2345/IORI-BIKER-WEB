@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await verifyStaffAuth(req);
     if (!auth.authorized) {
-      return NextResponse.json({ error: 'No autorizado. Se requiere sesión de personal autorizada.' }, { status: 401 });
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const body = await req.json();
     const { 

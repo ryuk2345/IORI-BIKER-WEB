@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { AdminDataProvider } from '@/components/admin/AdminDataContext';
 import { AdminAppShell } from '@/components/admin/layout/AdminAppShell';
+import { getUserRole } from '@/lib/auth/get-user-role';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +14,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = await getUserRole();
+
   return (
-    <AdminDataProvider>
+    <AdminDataProvider
+      initialUser={
+        auth.user
+          ? {
+              ...auth.user,
+              profile: {
+                id: auth.userId,
+                email: auth.email,
+                rol: auth.rol,
+                nombre: auth.user.nombre,
+              },
+            }
+          : null
+      }
+      initialRole={auth.rol}
+    >
       <AdminAppShell>
         {children}
       </AdminAppShell>
