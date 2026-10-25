@@ -20,7 +20,7 @@ export interface ProductoAdminInput {
   modo_venta: 'online' | 'cotizar';
   descripcion_corta?: string;
   descripcion_larga?: string;
-  sku: string;
+  sku: string | null;
   certificacion?: string;
   stock: number;
   financiamiento_disponible?: boolean;

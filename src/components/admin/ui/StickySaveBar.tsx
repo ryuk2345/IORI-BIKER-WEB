@@ -23,7 +23,7 @@ export function StickySaveBar({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 text-white py-3.5 px-4 sm:px-8 shadow-2xl transition-all duration-300 animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-0 left-0 right-0 z-[9990] bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 text-white py-3.5 px-4 sm:px-8 pr-20 sm:pr-24 shadow-2xl transition-all duration-300 animate-in slide-in-from-bottom-4">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 text-13 text-zinc-300 font-medium">
           <span className="w-2.5 h-2.5 rounded-full bg-[#F58220] animate-pulse shrink-0" />

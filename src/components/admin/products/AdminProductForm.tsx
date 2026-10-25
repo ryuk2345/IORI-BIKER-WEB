@@ -28,6 +28,13 @@ import { useToast } from '../ui/Toast';
 import { saveProduct, uploadImageToStorage } from '@/lib/services/admin-service';
 import { calcularCuotaEstimada } from '@/lib/acuotaz-estimado';
 import { formatPEN } from '@/utils/currency';
+import { createClient } from '@/lib/supabase/client';
+import {
+  generateVariantSku,
+  validateProductForm,
+  resolveGeneralSku,
+  assertNoInvisibleFieldErrors,
+} from '@/utils/productValidation';
 
 interface AdminProductFormProps {
   initialProduct: any | null;
@@ -51,14 +58,15 @@ export function AdminProductForm({
   const [nombre, setNombre] = useState(initialProduct?.nombre || '');
   const [sku, setSku] = useState(initialProduct?.sku || '');
   const [slug, setSlug] = useState(initialProduct?.slug || '');
+  // Categoría y marca empiezan vacías y son obligatorias para no asignar valores por error
   const [categoriaSlug, setCategoriaSlug] = useState(
-    initialProduct?.categoria_slug || categories[0]?.slug || 'cascos'
+    initialProduct?.categoria_slug || ''
   );
   const [subcategoriaSlug, setSubcategoriaSlug] = useState(
     initialProduct?.subcategoria_slug || ''
   );
   const [marcaId, setMarcaId] = useState(
-    initialProduct?.marca_id || brands[0]?.id || ''
+    initialProduct?.marca_id || ''
   );
   const [precio, setPrecio] = useState(initialProduct?.precio?.toString() || '');
   const [precioOferta, setPrecioOferta] = useState(
@@ -238,9 +246,13 @@ export function AdminProductForm({
           const key = `${t}-${c}`;
           const existing = currentMap.get(key);
           if (existing) {
+            // Si la variante existente no tiene SKU, generarle uno editable
+            if (!existing.sku || !existing.sku.trim()) {
+              existing.sku = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
+            }
             next.push(existing);
           } else {
-            const cleanSku = sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}`.toUpperCase() : '';
+            const cleanSku = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
             next.push({
               talla: t,
               color: c,
@@ -253,7 +265,7 @@ export function AdminProductForm({
       });
       return next;
     });
-  }, [tieneVariantes, selectedTallas, selectedColores, sku]);
+  }, [tieneVariantes, selectedTallas, selectedColores, sku, nombre]);
 
   // Manejo de fotos
   const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -334,33 +346,118 @@ export function AdminProductForm({
   };
 
   // Validación y guardado
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  const validateForm = async () => {
+    // 1. Auto-generar SKU para cualquier variante que no tenga uno si el nombre está presente
+    if (tieneVariantes && variantes.length > 0) {
+      let changed = false;
+      const nextVariantes = variantes.map((v) => {
+        let vSku = v.sku ? v.sku.trim().toUpperCase() : '';
+        if (!vSku && nombre.trim()) {
+          vSku = generateVariantSku(nombre, v.talla, v.color);
+          changed = true;
+          return { ...v, sku: vSku };
+        }
+        return v;
+      });
+      if (changed) {
+        setVariantes(nextVariantes);
+      }
+    }
 
-    if (!nombre.trim()) {
-      newErrors.nombre = 'El nombre del producto es obligatorio.';
-    }
-    if (!sku.trim()) {
-      newErrors.sku = 'El código SKU es obligatorio.';
-    }
-    if (isNaN(numPrecio) || numPrecio <= 0) {
-      newErrors.precio = 'El precio normal debe ser un monto mayor a 0.';
-    }
-    if (precioOferta && (isNaN(numPrecioOferta) || numPrecioOferta <= 0)) {
-      newErrors.precioOferta = 'El precio de oferta debe ser un número válido.';
-    } else if (numPrecioOferta >= numPrecio && numPrecioOferta > 0) {
-      newErrors.precioOferta = 'El precio de oferta debe ser menor al precio normal.';
+    // 2. Validación síncrona de campos obligatorios e invariantes
+    const newErrors = validateProductForm({
+      nombre,
+      precio,
+      precioOferta,
+      categoriaSlug,
+      marcaId,
+      sku,
+      tieneVariantes,
+      variantes,
+    });
+
+    // Comprobación de duplicados contra la base de datos (otros productos y variantes)
+    try {
+      const supabase = createClient();
+      const currentId = initialProduct?.id || 'none';
+
+      if (!tieneVariantes && sku.trim()) {
+        const cleanSku = sku.trim().toUpperCase();
+        const [{ data: pMatch }, { data: vMatch }] = await Promise.all([
+          supabase.from('productos').select('id, nombre').eq('sku', cleanSku).neq('id', currentId).maybeSingle(),
+          supabase.from('producto_variantes').select('id, sku').eq('sku', cleanSku).neq('producto_id', currentId).maybeSingle(),
+        ]);
+        if (pMatch || vMatch) {
+          newErrors.sku = `El SKU "${cleanSku}" ya pertenece a otro producto o variante del catálogo.`;
+        }
+      }
+
+      if (tieneVariantes && variantes.length > 0) {
+        const skusToCheck = variantes.map((v) => v.sku?.trim()?.toUpperCase()).filter(Boolean);
+        if (skusToCheck.length > 0) {
+          const [{ data: pMatches }, { data: vMatches }] = await Promise.all([
+            supabase.from('productos').select('id, sku').in('sku', skusToCheck).neq('id', currentId),
+            supabase.from('producto_variantes').select('id, sku, producto_id').in('sku', skusToCheck).neq('producto_id', currentId),
+          ]);
+
+          const takenSet = new Set<string>();
+          pMatches?.forEach((p) => takenSet.add(p.sku));
+          vMatches?.forEach((v) => takenSet.add(v.sku));
+
+          variantes.forEach((v, idx) => {
+            const vSku = v.sku?.trim()?.toUpperCase();
+            if (vSku && takenSet.has(vSku) && !newErrors[`variante_${idx}_sku`]) {
+              newErrors[`variante_${idx}_sku`] = `El SKU "${vSku}" ya existe en otro producto del catálogo.`;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Verificación de duplicados en cliente falló, el servidor validará:', e);
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    const errorKeys = Object.keys(newErrors);
+    if (errorKeys.length > 0) {
+      const friendlyLabels: Record<string, string> = {
+        nombre: 'Nombre del producto',
+        categoria: 'Categoría principal',
+        marca: 'Marca oficial',
+        sku: 'Código SKU',
+        precio: 'Precio normal',
+        precioOferta: 'Precio de oferta',
+        variantes: 'Variantes del producto',
+      };
+
+      const errorNames = errorKeys.map((k) => {
+        if (k.startsWith('variante_')) {
+          const idx = parseInt(k.split('_')[1], 10) + 1;
+          return `SKU de Variante #${idx}`;
+        }
+        return friendlyLabels[k] || k;
+      });
+
+      // Llevar al primer campo con error
+      const firstKey = errorKeys[0];
+      setTimeout(() => {
+        const el = document.getElementById(`field-${firstKey}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (typeof el.focus === 'function') el.focus();
+        }
+      }, 100);
+
+      showToast(`Corrige los siguientes campos: ${errorNames.join(', ')}`, 'error');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSaveProduct = async () => {
-    if (!validateForm()) {
-      showToast('Corrige los campos marcados en rojo', 'error');
-      return;
-    }
+    const isValid = await validateForm();
+    if (!isValid) return;
 
     setIsSaving(true);
     try {
@@ -388,7 +485,8 @@ export function AdminProductForm({
         id: initialProduct?.id,
         nombre: nombre.trim(),
         slug: generatedSlug,
-        sku: sku.trim().toUpperCase(),
+        // Con variantes, se guarda NULL en el SKU general (nunca copiar de variante)
+        sku: resolveGeneralSku(tieneVariantes, sku),
         categoria_slug: categoriaSlug,
         categoria_nombre: selectedCat?.nombre || categoriaSlug,
         subcategoria_slug: subcategoriaSlug,
@@ -488,6 +586,37 @@ export function AdminProductForm({
         </div>
       </div>
 
+      {/* Resumen de errores de validación visible al inicio */}
+      {Object.keys(errors).length > 0 && (
+        <div className="p-4 bg-red-50 border-2 border-red-300 rounded-2xl flex items-start gap-3 text-red-900 shadow-xs animate-in fade-in">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1.5 flex-1 text-xs">
+            <h4 className="font-bold text-13 uppercase tracking-wider text-red-900">
+              Corrige los siguientes campos para guardar ({Object.keys(errors).length}):
+            </h4>
+            <ul className="list-disc list-inside space-y-1 font-medium text-red-800">
+              {Object.entries(errors).map(([key, msg]) => (
+                <li key={key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(`field-${key}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        if (typeof el.focus === 'function') el.focus();
+                      }
+                    }}
+                    className="underline hover:text-red-950 font-bold cursor-pointer text-left"
+                  >
+                    {msg}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Cuadrícula Principal de 2 Columnas (Estilo Shopify / Filament) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ======================================================== */}
@@ -506,9 +635,19 @@ export function AdminProductForm({
                 <span className="text-11 text-zinc-400 font-normal">Recomendado: Marca + Modelo + Color</span>
               </label>
               <input
+                id="field-nombre"
                 type="text"
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  if (errors.nombre) {
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.nombre;
+                      return next;
+                    });
+                  }
+                }}
                 placeholder="Casco LS2 FF800 Storm negro mate"
                 className={`w-full px-3.5 py-2.5 bg-zinc-50 border rounded-lg text-13 text-zinc-900 focus:bg-white focus:outline-none transition-colors ${
                   errors.nombre ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
@@ -720,11 +859,21 @@ export function AdminProductForm({
                     S/
                   </span>
                   <input
+                    id="field-precio"
                     type="number"
                     step="0.10"
                     min="0"
                     value={precio}
-                    onChange={(e) => setPrecio(e.target.value)}
+                    onChange={(e) => {
+                      setPrecio(e.target.value);
+                      if (errors.precio) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.precio;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="450.00"
                     className={`w-full pl-9 pr-3.5 py-2.5 bg-zinc-50 border rounded-lg text-14 font-bold text-zinc-900 focus:bg-white focus:outline-none transition-colors ${
                       errors.precio ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
@@ -751,11 +900,21 @@ export function AdminProductForm({
                     S/
                   </span>
                   <input
+                    id="field-precioOferta"
                     type="number"
                     step="0.10"
                     min="0"
                     value={precioOferta}
-                    onChange={(e) => setPrecioOferta(e.target.value)}
+                    onChange={(e) => {
+                      setPrecioOferta(e.target.value);
+                      if (errors.precioOferta) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.precioOferta;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="389.00"
                     className={`w-full pl-9 pr-3.5 py-2.5 bg-zinc-50 border rounded-lg text-14 font-bold text-zinc-900 focus:bg-white focus:outline-none transition-colors ${
                       errors.precioOferta ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
@@ -802,28 +961,42 @@ export function AdminProductForm({
             description="Gestiona el SKU y las existencias generales o por combinación de talla y color."
           >
             {/* Toggle de variantes */}
-            <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg border border-zinc-200">
-              <div>
-                <span className="font-bold text-13 text-zinc-800 block">
-                  ¿Este producto tiene tallas o colores diferentes?
-                </span>
-                <span className="text-11 text-zinc-500">
-                  Activa para generar variantes independientes con SKU y stock individual.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTieneVariantes(!tieneVariantes)}
-                className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                  tieneVariantes ? 'bg-[#F58220]' : 'bg-zinc-300'
-                }`}
-              >
-                <span
-                  className={`block w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
-                    tieneVariantes ? 'translate-x-5.5' : 'translate-x-0.5'
+            <div
+              id="field-variantes"
+              tabIndex={-1}
+              className={`p-3 bg-zinc-50 rounded-lg border transition-colors ${
+                errors.variantes ? 'border-red-500 bg-red-50/20' : 'border-zinc-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-13 text-zinc-800 block">
+                    ¿Este producto tiene tallas o colores diferentes?
+                  </span>
+                  <span className="text-11 text-zinc-500">
+                    Activa para generar variantes independientes con SKU y stock individual.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTieneVariantes(!tieneVariantes)}
+                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+                    tieneVariantes ? 'bg-[#F58220]' : 'bg-zinc-300'
                   }`}
-                />
-              </button>
+                >
+                  <span
+                    className={`block w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${
+                      tieneVariantes ? 'translate-x-5.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              {errors.variantes && (
+                <p className="text-11 text-red-500 font-medium flex items-center gap-1 mt-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.variantes}</span>
+                </p>
+              )}
             </div>
 
             {/* CASO A: PRODUCTO SIMPLE SIN VARIANTES */}
@@ -834,16 +1007,29 @@ export function AdminProductForm({
                     Código SKU <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="field-sku"
                     type="text"
                     value={sku}
-                    onChange={(e) => setSku(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setSku(e.target.value.toUpperCase());
+                      if (errors.sku) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.sku;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="CAS-LS2-FF800-NM"
                     className={`w-full px-3.5 py-2.5 bg-zinc-50 border rounded-lg text-13 font-mono font-bold text-zinc-900 focus:bg-white focus:outline-none transition-colors ${
                       errors.sku ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
                     }`}
                   />
                   {errors.sku && (
-                    <p className="text-11 text-red-500 font-medium">{errors.sku}</p>
+                    <p className="text-11 text-red-500 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{errors.sku}</span>
+                    </p>
                   )}
                 </div>
 
@@ -967,52 +1153,73 @@ export function AdminProductForm({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
-                      {variantes.map((v, vIdx) => (
-                        <tr key={vIdx} className="hover:bg-zinc-50/60">
-                          <td className="py-2 px-3 font-bold text-zinc-800">
-                            {v.talla} / {v.color}
-                          </td>
-                          <td className="py-2 px-3">
-                            <input
-                              type="text"
-                              value={v.sku}
-                              onChange={(e) => {
-                                const next = [...variantes];
-                                next[vIdx].sku = e.target.value.toUpperCase();
-                                setVariantes(next);
-                              }}
-                              className="w-full px-2 py-1 bg-zinc-50 border border-zinc-200 rounded font-mono text-11 text-zinc-800"
-                            />
-                          </td>
-                          <td className="py-2 px-3">
-                            <input
-                              type="number"
-                              min="0"
-                              value={v.stock}
-                              onChange={(e) => {
-                                const next = [...variantes];
-                                next[vIdx].stock = parseInt(e.target.value, 10) || 0;
-                                setVariantes(next);
-                              }}
-                              className="w-20 px-2 py-1 bg-zinc-50 border border-zinc-200 rounded font-bold text-12 text-zinc-900"
-                            />
-                          </td>
-                          <td className="py-2 px-3">
-                            <input
-                              type="number"
-                              step="1"
-                              value={v.precio_ajuste || 0}
-                              onChange={(e) => {
-                                const next = [...variantes];
-                                next[vIdx].precio_ajuste = parseFloat(e.target.value) || 0;
-                                setVariantes(next);
-                              }}
-                              placeholder="0"
-                              className="w-20 px-2 py-1 bg-zinc-50 border border-zinc-200 rounded text-12 text-zinc-800"
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {variantes.map((v, vIdx) => {
+                        const rowError = errors[`variante_${vIdx}_sku`];
+                        return (
+                          <tr key={vIdx} className={rowError ? 'bg-red-50/60 transition-colors' : 'hover:bg-zinc-50/60'}>
+                            <td className="py-2.5 px-3 font-bold text-zinc-800">
+                              <span className="block">{v.talla} / {v.color}</span>
+                              <span className="text-[10px] text-zinc-400 font-normal">Fila #{vIdx + 1}</span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input
+                                id={`field-variante_${vIdx}_sku`}
+                                type="text"
+                                value={v.sku}
+                                onChange={(e) => {
+                                  const next = [...variantes];
+                                  next[vIdx].sku = e.target.value.toUpperCase();
+                                  setVariantes(next);
+                                  if (errors[`variante_${vIdx}_sku`]) {
+                                    setErrors((prev) => {
+                                      const n = { ...prev };
+                                      delete n[`variante_${vIdx}_sku`];
+                                      return n;
+                                    });
+                                  }
+                                }}
+                                placeholder="SKU de la variante"
+                                className={`w-full px-2 py-1.5 bg-zinc-50 border rounded font-mono text-11 text-zinc-900 transition-colors ${
+                                  rowError ? 'border-red-500 bg-red-50/30 ring-1 ring-red-400' : 'border-zinc-200 focus:border-[#F58220]'
+                                }`}
+                              />
+                              {rowError && (
+                                <p className="text-[10px] text-red-600 font-bold mt-1 leading-tight flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3 shrink-0" />
+                                  <span>{rowError}</span>
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input
+                                type="number"
+                                min="0"
+                                value={v.stock}
+                                onChange={(e) => {
+                                  const next = [...variantes];
+                                  next[vIdx].stock = parseInt(e.target.value, 10) || 0;
+                                  setVariantes(next);
+                                }}
+                                className="w-20 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded font-bold text-12 text-zinc-900 focus:border-[#F58220]"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input
+                                type="number"
+                                step="1"
+                                value={v.precio_ajuste || 0}
+                                onChange={(e) => {
+                                  const next = [...variantes];
+                                  next[vIdx].precio_ajuste = parseFloat(e.target.value) || 0;
+                                  setVariantes(next);
+                                }}
+                                placeholder="0"
+                                className="w-20 px-2 py-1.5 bg-zinc-50 border border-zinc-200 rounded text-12 text-zinc-800 focus:border-[#F58220]"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1102,22 +1309,39 @@ export function AdminProductForm({
             {/* Categoría */}
             <div className="space-y-1.5">
               <label className="text-12 font-bold uppercase tracking-wider text-zinc-700 block">
-                Categoría Principal
+                Categoría Principal <span className="text-red-500">*</span>
               </label>
               <select
+                id="field-categoria"
                 value={categoriaSlug}
                 onChange={(e) => {
                   setCategoriaSlug(e.target.value);
                   setSubcategoriaSlug('');
+                  if (errors.categoria) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.categoria;
+                      return n;
+                    });
+                  }
                 }}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-13 font-medium text-zinc-800 focus:bg-white focus:outline-none focus:border-[#F58220] cursor-pointer"
+                className={`w-full px-3.5 py-2.5 bg-zinc-50 border rounded-lg text-13 font-medium text-zinc-800 focus:bg-white focus:outline-none cursor-pointer transition-colors ${
+                  errors.categoria ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
+                }`}
               >
+                <option value="">-- Seleccionar categoría obligatoria --</option>
                 {categories.map((c) => (
                   <option key={c.slug} value={c.slug}>
                     {c.nombre}
                   </option>
                 ))}
               </select>
+              {errors.categoria && (
+                <p className="text-11 text-red-500 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.categoria}</span>
+                </p>
+              )}
             </div>
 
             {/* Subcategoría dependiente */}
@@ -1143,7 +1367,7 @@ export function AdminProductForm({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-12 font-bold uppercase tracking-wider text-zinc-700">
-                  Marca Oficial
+                  Marca Oficial <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
@@ -1154,16 +1378,35 @@ export function AdminProductForm({
                 </button>
               </div>
               <select
+                id="field-marca"
                 value={marcaId}
-                onChange={(e) => setMarcaId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-13 font-medium text-zinc-800 focus:bg-white focus:outline-none focus:border-[#F58220] cursor-pointer"
+                onChange={(e) => {
+                  setMarcaId(e.target.value);
+                  if (errors.marca) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.marca;
+                      return n;
+                    });
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 bg-zinc-50 border rounded-lg text-13 font-medium text-zinc-800 focus:bg-white focus:outline-none cursor-pointer transition-colors ${
+                  errors.marca ? 'border-red-500 bg-red-50/20' : 'border-zinc-300 focus:border-[#F58220]'
+                }`}
               >
+                <option value="">-- Seleccionar marca obligatoria --</option>
                 {brands.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.nombre}
                   </option>
                 ))}
               </select>
+              {errors.marca && (
+                <p className="text-11 text-red-500 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.marca}</span>
+                </p>
+              )}
             </div>
 
             {/* Etiqueta Destacada */}

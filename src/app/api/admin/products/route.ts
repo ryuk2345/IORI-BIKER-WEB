@@ -14,6 +14,98 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const adminSupabase = createAdminClient();
 
+    // 1. Validaciones de Categoría y Marca obligatorias
+    if (!body.categoria_slug || !body.categoria_slug.trim()) {
+      return NextResponse.json({ error: 'La categoría del producto es obligatoria.' }, { status: 400 });
+    }
+    if (!body.marca_id || !body.marca_id.trim()) {
+      return NextResponse.json({ error: 'La marca oficial del producto es obligatoria.' }, { status: 400 });
+    }
+
+    const hasVariants = Boolean(body.variantes && body.variantes.length > 0);
+    const cleanGeneralSku = body.sku ? body.sku.trim().toUpperCase() : '';
+
+    // 2. Validación de SKU General: Con variantes se guarda NULL; sin variantes es obligatorio
+    let finalGeneralSku: string | null = null;
+    if (hasVariants) {
+      finalGeneralSku = null; // No copiar SKU de variante, siempre NULL en el producto padre
+    } else {
+      if (!cleanGeneralSku) {
+        return NextResponse.json({ error: 'El código SKU es obligatorio para productos sin variantes.' }, { status: 400 });
+      }
+      finalGeneralSku = cleanGeneralSku;
+
+      // Comprobar duplicado de SKU general contra otros productos y variantes
+      const { data: prodDupe } = await adminSupabase
+        .from('productos')
+        .select('id, nombre')
+        .eq('sku', cleanGeneralSku)
+        .neq('id', body.id || 'none')
+        .maybeSingle();
+      if (prodDupe) {
+        return NextResponse.json({ error: `El SKU "${cleanGeneralSku}" ya pertenece a "${prodDupe.nombre}".` }, { status: 400 });
+      }
+
+      const { data: varDupe } = await adminSupabase
+        .from('producto_variantes')
+        .select('id, sku')
+        .eq('sku', cleanGeneralSku)
+        .neq('producto_id', body.id || 'none')
+        .maybeSingle();
+      if (varDupe) {
+        return NextResponse.json({ error: `El SKU "${cleanGeneralSku}" ya está registrado en otra variante existente.` }, { status: 400 });
+      }
+    }
+
+    // 3. Validación de Variantes: SKU no vacío, no duplicado internamente ni contra otros productos
+    if (hasVariants) {
+      const seenSkus = new Set<string>();
+      for (const v of body.variantes) {
+        const vSku = v.sku ? v.sku.trim().toUpperCase() : '';
+        if (!vSku) {
+          return NextResponse.json(
+            { error: `La variante (${v.talla || 'STD'} / ${v.color || 'STD'}) no tiene código SKU.` },
+            { status: 400 }
+          );
+        }
+        if (seenSkus.has(vSku)) {
+          return NextResponse.json(
+            { error: `El SKU "${vSku}" está duplicado en las variantes de este producto.` },
+            { status: 400 }
+          );
+        }
+        seenSkus.add(vSku);
+
+        // Duplicado contra otros productos
+        const { data: pMatch } = await adminSupabase
+          .from('productos')
+          .select('id, nombre')
+          .eq('sku', vSku)
+          .neq('id', body.id || 'none')
+          .maybeSingle();
+        if (pMatch) {
+          return NextResponse.json(
+            { error: `El SKU "${vSku}" ya pertenece al producto "${pMatch.nombre}".` },
+            { status: 400 }
+          );
+        }
+
+        // Duplicado contra variantes de otros productos
+        const { data: vMatch } = await adminSupabase
+          .from('producto_variantes')
+          .select('id, producto_id, sku')
+          .eq('sku', vSku)
+          .neq('producto_id', body.id || 'none')
+          .maybeSingle();
+        if (vMatch) {
+          return NextResponse.json(
+            { error: `El SKU "${vSku}" ya está registrado en otra variante existente en el catálogo.` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const productPayload: any = {
       nombre: body.nombre,
       slug: body.slug,
@@ -21,8 +113,8 @@ export async function POST(req: NextRequest) {
       subcategoria_slug: body.subcategoria_slug || '',
       categoria_nombre: body.categoria_nombre,
       subcategoria_nombre: body.subcategoria_nombre || '',
-      marca_id: body.marca_id || 'ls2',
-      marca_nombre: body.marca_nombre || 'LS2',
+      marca_id: body.marca_id,
+      marca_nombre: body.marca_nombre || body.marca_id,
       precio: body.precio,
       precio_original: body.precio_original || null,
       precio_oferta: body.precio_oferta || null,
@@ -33,7 +125,7 @@ export async function POST(req: NextRequest) {
       modo_venta: body.modo_venta || 'online',
       descripcion_corta: body.descripcion_corta || '',
       descripcion_larga: body.descripcion_larga || '',
-      sku: body.sku,
+      sku: finalGeneralSku,
       certificacion: body.certificacion || null,
       stock: body.stock || 0,
       financiamiento_disponible: Boolean(body.financiamiento_disponible),
@@ -61,11 +153,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Guardar variantes si se envían
-    if (body.variantes && body.variantes.length > 0) {
+    if (hasVariants) {
       await adminSupabase.from('producto_variantes').delete().eq('producto_id', savedProductId);
       const varRows = body.variantes.map((v: any) => ({
         producto_id: savedProductId,
-        sku: v.sku || `${body.sku}-${v.talla || 'STD'}-${v.color || 'STD'}`,
+        sku: v.sku.trim().toUpperCase(),
         talla: v.talla,
         color: v.color,
         color_hex: v.color_hex,
@@ -73,6 +165,9 @@ export async function POST(req: NextRequest) {
         precio_ajuste: v.precio_ajuste || 0,
       }));
       await adminSupabase.from('producto_variantes').insert(varRows);
+    } else {
+      // Si antes tenía variantes y ahora es simple, limpiar variantes
+      await adminSupabase.from('producto_variantes').delete().eq('producto_id', savedProductId);
     }
 
     // Revalidar caché de Next.js

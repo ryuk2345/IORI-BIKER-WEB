@@ -76,6 +76,8 @@ test.describe('E2E Administración (Login, Productos, Excel, Promociones y Pedid
         sku: duplicateSku,
         categoria_slug: 'cascos',
         categoria_nombre: 'Cascos',
+        marca_id: 'ls2',
+        marca_nombre: 'LS2',
         precio: 550.0,
         precio_oferta: 490.0,
         stock: 15,

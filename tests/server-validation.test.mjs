@@ -200,3 +200,4 @@ test('Servidor - Bloquea marcar como pagado si el stock es insuficiente', () => 
     /Stock insuficiente/
   );
 });
+
