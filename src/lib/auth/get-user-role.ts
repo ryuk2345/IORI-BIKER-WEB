@@ -1,5 +1,12 @@
 import type { NextRequest } from 'next/server';
-import { createAdminClient } from '../supabase/admin.ts';
+import { timingSafeEqual } from 'node:crypto';
+import { createAdminClient, resolveAdminKey } from '../supabase/admin.ts';
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
 export type UserRole = 'admin' | 'atencion' | 'cliente' | string;
 
@@ -35,11 +42,13 @@ export interface AuthVerificationResult {
  * 3. Garantiza que la respuesta sea determinista y segura.
  */
 export async function getUserRole(req?: NextRequest): Promise<GetUserRoleResult> {
-  // 0. Si se proporciona la clave maestra interna de administración (x-admin-key)
-  const serviceRoleSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  // 0. Si se proporciona la clave maestra interna de administración (x-admin-key).
+  // Solo se acepta una clave secreta real: si en el entorno hubiera una clave pública por error,
+  // cualquiera podría enviarla y obtener rol admin.
+  const serviceRoleSecret = resolveAdminKey().key;
   if (req && serviceRoleSecret) {
     const adminKeyHeader = req.headers.get('x-admin-key');
-    if (adminKeyHeader && adminKeyHeader === serviceRoleSecret) {
+    if (adminKeyHeader && safeEqual(adminKeyHeader, serviceRoleSecret)) {
       return {
         user: { id: 'service-role-admin', email: 'service-role@ioribikershop.internal' },
         userId: 'service-role-admin',

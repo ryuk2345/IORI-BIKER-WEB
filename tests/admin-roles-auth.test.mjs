@@ -193,7 +193,7 @@ test('9. createAdminClient valida la clave secreta y rechaza la clave pública c
   const origAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   try {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl || 'https://yhlynkmuuksywgcfwbcm.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl || 'https://demo-proyecto.supabase.co';
 
     // 9.1 Si falta la clave secreta, debe lanzar error descriptivo
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
