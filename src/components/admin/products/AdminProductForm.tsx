@@ -200,12 +200,7 @@ export function AdminProductForm({
 
   // Subcategorías según la categoría seleccionada
   const selectedCategoryObj = categories.find((c) => c.slug === categoriaSlug);
-  const subcategoriasList = selectedCategoryObj?.subcategorias || [
-    { slug: 'integrales', nombre: 'Integrales' },
-    { slug: 'abatibles', nombre: 'Abatibles / Modulares' },
-    { slug: 'abiertos', nombre: 'Abiertos / Jet' },
-    { slug: 'cross', nombre: 'Cross / Enduro' },
-  ];
+  const subcategoriasList = selectedCategoryObj?.subcategorias || [];
 
   // Cálculo del porcentaje de descuento
   const numPrecio = parseFloat(precio) || 0;
