@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       entregaTexto = `Delivery Lima: ${direccionEntregaFinal}`;
     } else if (metodo_entrega === 'provincia') {
       if (!departamento || !ciudad || !agencia) {
-        return NextResponse.json({ error: 'Ingresa departamento, ciudad y agencia (Shalom o Mavisur) para el despacho a provincia.' }, { status: 400 });
+        return NextResponse.json({ error: 'Ingresa departamento, ciudad y agencia (Shalom o Marvisur) para el despacho a provincia.' }, { status: 400 });
       }
       metodoEntregaDB = 'provincia_agencia';
       agenciaEnvioFinal = agencia;

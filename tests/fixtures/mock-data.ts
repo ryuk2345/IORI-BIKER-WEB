@@ -32,7 +32,7 @@ export const DATOS_NEGOCIO = {
     googleMapsUrl: 'https://maps.google.com/?q=Av.+Nicolás+Arriola+901,+La+Victoria,+Lima',
   },
   mediosDePago: 'Yape, Plin, Transferencias (BCP/BBVA/Interbank), Tarjetas Crédito/Débito y Efectivo en Tienda',
-  empresasEnvios: 'Shalom, Mavisur, Olva Courier',
+  empresasEnvios: 'Shalom, Marvisur, Olva Courier',
 };
 
 export const PENDIENTE_TEXT = '[PENDIENTE]';
@@ -204,7 +204,7 @@ export const BENEFICIOS_HOME = [
   {
     id: 'envios',
     titulo: 'Envíos a todo el Perú',
-    descripcion: 'Agencias Shalom y Mavisur a nivel nacional',
+    descripcion: 'Agencias Shalom y Marvisur a nivel nacional',
     icono: 'truck',
   },
   {

@@ -905,7 +905,7 @@ export function AdminSettingsShipping({
               Tarifas de Entrega y Agencias de Envío
             </h2>
             <p className="text-xs text-zinc-500">
-              Configura costos de delivery local y agencias para envíos a provincia (Shalom y Mavisur).
+              Configura costos de delivery local y agencias para envíos a provincia (Shalom y Marvisur).
             </p>
           </div>
         </div>

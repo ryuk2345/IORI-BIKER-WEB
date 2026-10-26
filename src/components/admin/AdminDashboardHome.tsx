@@ -117,7 +117,7 @@ export function AdminDashboardHome({
     {
       id: 3,
       titulo: '3. Tarifas de despacho y envío',
-      descripcion: 'Tarifas de delivery para Lima Metropolitana y provincias (Shalom/Mavisur).',
+      descripcion: 'Tarifas de delivery para Lima Metropolitana y provincias (Shalom/Marvisur).',
       icono: Truck,
       completado: (Array.isArray(shipping) && shipping.length > 0) || Boolean(settings?.envios_personalizados?.activo),
       href: ADMIN_ROUTES.AJUSTES_ENVIOS,

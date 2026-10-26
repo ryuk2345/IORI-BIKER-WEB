@@ -390,7 +390,7 @@ export function ProductDetailView({ producto, relacionados = [] }: ProductDetail
               </div>
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-[#F58220]" />
-                <span>Envíos a todo el Perú (Shalom/Mavisur)</span>
+                <span>Envíos a todo el Perú (Shalom/Marvisur)</span>
               </div>
             </div>
           </div>

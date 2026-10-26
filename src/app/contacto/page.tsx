@@ -373,7 +373,7 @@ export default function ContactoPage() {
                   >
                     <option value="Consulta sobre cascos certificados">Consulta sobre cascos certificados (ECE / DOT)</option>
                     <option value="Asesoría de tallas y medidas">Asesoría de tallas y medidas</option>
-                    <option value="Costos y agencias para envíos a provincias">Costos y agencias para envíos a provincias (Shalom/Mavisur)</option>
+                    <option value="Costos y agencias para envíos a provincias">Costos y agencias para envíos a provincias (Shalom/Marvisur)</option>
                     <option value="Consulta de financiamiento propio">Consulta de financiamiento propio</option>
                     <option value="Ventas por mayor o convenios">Ventas corporativas o por mayor</option>
                     <option value="Atención posventa / Garantías">Atención posventa / Garantías</option>
