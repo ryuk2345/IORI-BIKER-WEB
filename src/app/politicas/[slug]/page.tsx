@@ -73,7 +73,7 @@ Iori Biker Shop realiza envíos a todos los departamentos del Perú principalmen
 
 ## 2. Recojo Gratuito en Tiendas
 Puedes retirar tus productos sin costo de flete en nuestras 2 sedes en Lima:
-- Sede Tahuantisuyo (Independencia): Av. Contisuyo #418.
+- Sede Tahuantinsuyo (Independencia): Av. Contisuyo #418.
 - Sede La Victoria: Av. Nicolás Arriola 901.
 
 ---

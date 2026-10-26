@@ -183,6 +183,8 @@ Para recogerlo en la agencia, lleva tu DNI.`,
 };
 
 // Generador de URLs de WhatsApp con mensaje codificado
+// Acepta números guardados sin código de país (celular peruano de 9 dígitos) y les antepone 51.
 export function buildWhatsAppUrl(texto: string, numero: string = WHATSAPP_NUMERO_OFICIAL): string {
-  return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  const digits = numero.replace(/\D/g, '').replace(/^(9\d{8})$/, '51$1');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(texto)}`;
 }
