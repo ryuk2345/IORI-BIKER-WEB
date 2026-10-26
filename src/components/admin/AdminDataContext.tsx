@@ -127,7 +127,7 @@ export function AdminDataProvider({ children, initialUser = null }: AdminDataPro
         teamRes,
       ] = await Promise.all([
         getAdminProducts().catch(() => null),
-        Promise.resolve(supabase.from('categorias').select('*').order('orden', { ascending: true })).catch(() => ({ data: null })),
+        Promise.resolve(supabase.from('categorias').select('*, subcategorias(*)').order('orden', { ascending: true }).order('orden', { referencedTable: 'subcategorias', ascending: true })).catch(() => ({ data: null })),
         Promise.resolve(supabase.from('marcas').select('*').order('orden', { ascending: true })).catch(() => ({ data: null })),
         getAdminBanners().catch(() => []),
         getAdminSettings().catch(() => ({})),
