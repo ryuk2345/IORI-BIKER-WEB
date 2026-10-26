@@ -44,6 +44,15 @@ interface AdminProductFormProps {
   onSaved: () => void;
 }
 
+const COLORES_BASE: Record<string, string> = {
+  'Negro Mate': '#1C1C1C',
+  'Negro Brillo': '#000000',
+  Blanco: '#FFFFFF',
+  Titanio: '#8A8D8F',
+  Rojo: '#D62828',
+  Flúor: '#CCFF00',
+};
+
 export function AdminProductForm({
   initialProduct,
   categories,
@@ -132,6 +141,18 @@ export function AdminProductForm({
     }
     return ['Negro Mate'];
   });
+  // Color de la muestra (swatch) que ve el cliente en la ficha del producto
+  const [colorHex, setColorHex] = useState<Record<string, string>>(() => {
+    const map: Record<string, string> = { ...COLORES_BASE };
+    if (hasInitialVariants) {
+      initialProduct.producto_variantes.forEach((v: any) => {
+        if (v.color && v.color_hex) map[v.color] = v.color_hex;
+      });
+    }
+    return map;
+  });
+  const [nuevoColor, setNuevoColor] = useState('');
+  const [nuevoColorHex, setNuevoColorHex] = useState('#F4A6C0');
   const [variantes, setVariantes] = useState<any[]>(() => {
     if (hasInitialVariants) {
       return initialProduct.producto_variantes.map((v: any) => ({
@@ -240,7 +261,9 @@ export function AdminProductForm({
         colores.forEach((c) => {
           const key = `${t}-${c}`;
           const existing = currentMap.get(key);
+          const color_hex = colorHex[c] || existing?.color_hex || '#000000';
           if (existing) {
+            existing.color_hex = color_hex;
             // Si la variante existente no tiene SKU, generarle uno editable
             if (!existing.sku || !existing.sku.trim()) {
               existing.sku = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
@@ -251,6 +274,7 @@ export function AdminProductForm({
             next.push({
               talla: t,
               color: c,
+              color_hex,
               sku: cleanSku,
               stock: 5,
               precio_ajuste: 0,
@@ -260,7 +284,16 @@ export function AdminProductForm({
       });
       return next;
     });
-  }, [tieneVariantes, selectedTallas, selectedColores, sku, nombre]);
+  }, [tieneVariantes, selectedTallas, selectedColores, colorHex, sku, nombre]);
+
+  const agregarColor = () => {
+    const nombreColor = nuevoColor.trim().replace(/\s+/g, ' ');
+    if (!nombreColor) return;
+    const existente = Object.keys(colorHex).find((c) => c.toLowerCase() === nombreColor.toLowerCase()) || nombreColor;
+    if (existente === nombreColor) setColorHex({ ...colorHex, [nombreColor]: nuevoColorHex });
+    if (!selectedColores.includes(existente)) setSelectedColores([...selectedColores, existente]);
+    setNuevoColor('');
+  };
 
   // Manejo de fotos
   const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1085,7 +1118,7 @@ export function AdminProductForm({
                     Colores Disponibles:
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {['Negro Mate', 'Negro Brillo', 'Blanco', 'Titanio', 'Rojo', 'Flúor'].map((color) => {
+                    {Array.from(new Set([...Object.keys(COLORES_BASE), ...selectedColores])).map((color) => {
                       const isSel = selectedColores.includes(color);
                       return (
                         <button
@@ -1106,10 +1139,43 @@ export function AdminProductForm({
                               : 'bg-white text-zinc-600 border-zinc-300 hover:border-zinc-400'
                           }`}
                         >
+                          <span
+                            className="inline-block w-3 h-3 rounded-full border border-zinc-300 mr-1.5 align-middle"
+                            style={{ backgroundColor: colorHex[color] || '#000000' }}
+                          />
                           {color}
                         </button>
                       );
                     })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={nuevoColorHex}
+                      onChange={(e) => setNuevoColorHex(e.target.value)}
+                      aria-label="Tono del nuevo color"
+                      className="w-9 h-9 p-0.5 bg-white border border-zinc-300 rounded-lg cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={nuevoColor}
+                      onChange={(e) => setNuevoColor(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          agregarColor();
+                        }
+                      }}
+                      placeholder="Otro color (ej. Rosado)"
+                      className="flex-1 px-3 py-2 bg-white border border-zinc-300 rounded-lg text-12 text-zinc-900 focus:outline-none focus:border-[#F58220]"
+                    />
+                    <button
+                      type="button"
+                      onClick={agregarColor}
+                      className="px-3 py-2 bg-zinc-900 text-white rounded-lg text-12 font-bold cursor-pointer hover:bg-zinc-800"
+                    >
+                      Añadir
+                    </button>
                   </div>
                 </div>
 
