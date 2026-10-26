@@ -64,7 +64,7 @@ export default function CartPage() {
   const [referencia, setReferencia] = useState('');
   const [departamento, setDepartamento] = useState('Arequipa');
   const [ciudad, setCiudad] = useState('');
-  const [agencia, setAgencia] = useState<'Shalom' | 'Mavisur'>('Shalom');
+  const [agencia, setAgencia] = useState<'Shalom' | 'Marvisur'>('Shalom');
   const [notas, setNotas] = useState('');
   const [aceptaPrivacidad, setAceptaPrivacidad] = useState(false);
   const [honeypot, setHoneypot] = useState('');
@@ -687,7 +687,7 @@ export default function CartPage() {
                     {tarifaProvincia !== null ? (
                       <>
                         <div className="text-12 text-zinc-900 font-bold mt-0.5">S/ {tarifaProvincia.toFixed(2)} base</div>
-                        <div className="text-[11px] text-zinc-500 mt-0.5">Shalom o Mavisur</div>
+                        <div className="text-[11px] text-zinc-500 mt-0.5">Shalom o Marvisur</div>
                       </>
                     ) : (
                       <>
@@ -828,7 +828,7 @@ export default function CartPage() {
                           className="w-full text-14 px-3 py-2 border border-zinc-300 rounded-[4px] bg-white font-bold focus:outline-none focus:border-brand"
                         >
                           <option value="Shalom">Agencia Shalom</option>
-                          <option value="Mavisur">Transportes Mavisur</option>
+                          <option value="Marvisur">Transportes Marvisur</option>
                         </select>
                       </div>
                     </div>

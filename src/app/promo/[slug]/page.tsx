@@ -154,7 +154,7 @@ export default async function PromoSlugPage({
                 Recibe en Todo el Perú
               </h2>
               <p className="text-xs text-zinc-400 mt-1">
-                Envío nacional por Shalom / Mavisur o recógelos en nuestras tiendas físicas de Lima.
+                Envío nacional por Shalom / Marvisur o recógelos en nuestras tiendas físicas de Lima.
               </p>
             </div>
           </div>

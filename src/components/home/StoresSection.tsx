@@ -80,7 +80,7 @@ export function StoresSection({ tiendas = [] }: StoresSectionProps) {
                           WhatsApp directo:{' '}
                         </span>
                         <a
-                          href={`https://wa.me/${tienda.telefonoWhatsApp.replace(/\D/g, '')}`}
+                          href={`https://wa.me/${tienda.telefonoWhatsApp.replace(/\D/g, '').replace(/^(9\d{8})$/, '51$1')}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[#F58220] font-bold hover:underline"

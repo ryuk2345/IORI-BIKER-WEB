@@ -130,3 +130,8 @@ test('WhatsApp - Formato de cotización y financiamiento', () => {
   assert.match(financiamientoMsg, /Casco MT Thunder 4 SV/);
   assert.match(financiamientoMsg, /Quedo a la espera de los requisitos/);
 });
+
+test('WhatsApp - número de 9 dígitos sin código de país recibe prefijo 51', () => {
+  assert.ok(buildWhatsAppUrl('hola', '905445698').startsWith('https://wa.me/51905445698?'));
+  assert.ok(buildWhatsAppUrl('hola', '+51 905 445 698').startsWith('https://wa.me/51905445698?'));
+});

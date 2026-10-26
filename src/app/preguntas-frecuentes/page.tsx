@@ -69,7 +69,7 @@ export default function PreguntasFrecuentesPage() {
               id: 'faq-3',
               categoria: 'envios',
               pregunta: '¿Cómo funcionan los envíos a Lima y provincias?',
-              respuesta: 'En Lima entregamos en 24 a 48 horas hábiles. Para provincias, despachamos con Shalom, Mavisur y Olva Courier con envío de guía de tracking y clave de recojo por WhatsApp.',
+              respuesta: 'En Lima entregamos en 24 a 48 horas hábiles. Para provincias, despachamos con Shalom, Marvisur y Olva Courier con envío de guía de tracking y clave de recojo por WhatsApp.',
               orden: 3,
               activo: true,
             },

@@ -11,7 +11,7 @@ import { useTiendaSettings } from '@/context/TiendaSettingsContext';
 export default function ContactoPage() {
   const { empresa, whatsapp, tiendasFisicas } = useTiendaSettings();
   const sedePrincipal = tiendasFisicas[0] || {
-    nombre: 'Sede Tahuantisuyo (Independencia)',
+    nombre: 'Sede Tahuantinsuyo (Independencia)',
     direccion: 'Av. Contisuyo #418, Tahuantinsuyo, Independencia, Lima',
     horario: 'Lunes a Sábado 9:00 am – 10:00 pm / Domingos o Feriados 11:00 am – 8:00 pm',
     mapsUrl: 'https://maps.google.com/?q=Av.+Contisuyo+418,+Independencia,+Lima',
@@ -136,7 +136,7 @@ export default function ContactoPage() {
               </div>
             </div>
 
-            {/* Sede 1: Tahuantisuyo (Independencia) */}
+            {/* Sede 1: Tahuantinsuyo (Independencia) */}
             <div className="bg-white p-6 sm:p-7 rounded-2xl border border-zinc-200 shadow-xs space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -144,7 +144,7 @@ export default function ContactoPage() {
                     Tienda Principal • Lima Norte
                   </span>
                   <h3 className="font-heading font-bold text-xl uppercase text-zinc-900 mt-1">
-                    Sede Tahuantisuyo (Independencia)
+                    Sede Tahuantinsuyo (Independencia)
                   </h3>
                 </div>
               </div>
@@ -166,7 +166,7 @@ export default function ContactoPage() {
               {/* Mapa embebido Sede 1 */}
               <div className="w-full h-44 rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 relative">
                 <iframe
-                  title="Mapa Sede Tahuantisuyo Independencia"
+                  title="Mapa Sede Tahuantinsuyo Independencia"
                   src="https://maps.google.com/maps?q=Av.+Contisuyo+418,+Independencia,+Lima,+Peru&t=&z=15&ie=UTF8&iwloc=&output=embed"
                   className="w-full h-full border-0"
                   loading="lazy"
@@ -184,7 +184,7 @@ export default function ContactoPage() {
                   <ExternalLink className="w-3.5 h-3.5" /> Abrir en Google Maps
                 </a>
                 <a
-                  href={`https://wa.me/51905445698?text=${encodeURIComponent('Hola Iori Biker Shop, deseo consultar stock o atención en la Sede Tahuantisuyo (Independencia)')}`}
+                  href={`https://wa.me/51905445698?text=${encodeURIComponent('Hola Iori Biker Shop, deseo consultar stock o atención en la Sede Tahuantinsuyo (Independencia)')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-50 hover:bg-orange-100 text-brand text-xs font-bold uppercase rounded-lg transition-colors"
@@ -373,7 +373,7 @@ export default function ContactoPage() {
                   >
                     <option value="Consulta sobre cascos certificados">Consulta sobre cascos certificados (ECE / DOT)</option>
                     <option value="Asesoría de tallas y medidas">Asesoría de tallas y medidas</option>
-                    <option value="Costos y agencias para envíos a provincias">Costos y agencias para envíos a provincias (Shalom/Mavisur)</option>
+                    <option value="Costos y agencias para envíos a provincias">Costos y agencias para envíos a provincias (Shalom/Marvisur)</option>
                     <option value="Consulta de financiamiento propio">Consulta de financiamiento propio</option>
                     <option value="Ventas por mayor o convenios">Ventas corporativas o por mayor</option>
                     <option value="Atención posventa / Garantías">Atención posventa / Garantías</option>

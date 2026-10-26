@@ -717,7 +717,7 @@ Para recogerlo en la agencia, lleva tu DNI.`;
             {/* Formulario de Código de Seguimiento de Agencia y Notas Internas */}
             <form onSubmit={handleGuardarSeguimiento} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 space-y-3">
               <span className="font-bold text-xs uppercase text-zinc-800 block">
-                Logística y Seguimiento de Agencia (Shalom / Mavisur / Courier)
+                Logística y Seguimiento de Agencia (Shalom / Marvisur / Courier)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

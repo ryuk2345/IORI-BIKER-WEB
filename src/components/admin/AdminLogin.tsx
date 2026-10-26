@@ -143,21 +143,6 @@ export function AdminLogin({ onLoginSuccess }: AdminLoginProps) {
             )}
           </button>
 
-          {/* Botón DEMO para entorno de desarrollo y pruebas locales */}
-          <button
-            type="button"
-            onClick={() => {
-              onLoginSuccess({
-                id: 'demo-admin-user',
-                email: 'admin@ioribikershop.pe',
-                profile: { rol: 'admin', nombre: 'Admin Iori (DEMO)' },
-              });
-            }}
-            className="w-full py-2.5 px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/60 transition cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#f58220]" />
-            <span>Acceso Rápido DEMO (Administrador)</span>
-          </button>
         </form>
 
         <div className="pt-4 border-t border-zinc-800 text-center text-[11px] text-zinc-500">

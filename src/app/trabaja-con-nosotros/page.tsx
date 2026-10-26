@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 const PUESTOS_DISPONIBLES = [
-  'Asesor de Ventas Presencial (Sede Tahuantisuyo - Independencia)',
+  'Asesor de Ventas Presencial (Sede Tahuantinsuyo - Independencia)',
   'Asesor de Ventas Presencial (Sede La Victoria)',
   'Especialista en Ventas y Asesoría por WhatsApp',
   'Técnico Instalador de Intercomunicadores y Accesorios',

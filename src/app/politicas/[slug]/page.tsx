@@ -63,7 +63,7 @@ async function getPolitica(slug: string): Promise<PoliticaItem | null> {
       titulo: 'Políticas de Envíos, Entregas y Devoluciones',
       subtitulo: 'Condiciones de entrega a nivel nacional y lineamientos de cambios y devoluciones.',
       contenido: `## 1. Cobertura Nacional y Agencias
-Iori Biker Shop realiza envíos a todos los departamentos del Perú principalmente a través de Shalom, Mavisur y Olva Courier.
+Iori Biker Shop realiza envíos a todos los departamentos del Perú principalmente a través de Shalom, Marvisur y Olva Courier.
 
 ### Plazos estimados:
 - **Lima Metropolitana:** 24 a 48 horas hábiles tras la verificación de stock y pago por WhatsApp.
@@ -73,7 +73,7 @@ Iori Biker Shop realiza envíos a todos los departamentos del Perú principalmen
 
 ## 2. Recojo Gratuito en Tiendas
 Puedes retirar tus productos sin costo de flete en nuestras 2 sedes en Lima:
-- Sede Tahuantisuyo (Independencia): Av. Contisuyo #418.
+- Sede Tahuantinsuyo (Independencia): Av. Contisuyo #418.
 - Sede La Victoria: Av. Nicolás Arriola 901.
 
 ---

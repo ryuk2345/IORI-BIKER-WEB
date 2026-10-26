@@ -26,7 +26,7 @@ export function Footer() {
               />
             </Link>
             <p className="text-12 text-zinc-400 leading-relaxed font-normal">
-              Tienda de accesorios para moto e indumentaria biker. Envíos garantizados a todo el Perú por Shalom y Mavisur.
+              Tienda de accesorios para moto e indumentaria biker. Envíos garantizados a todo el Perú por Shalom y Marvisur.
             </p>
             <div className="text-12 space-y-1 text-zinc-400 pt-1">
               <p><strong className="text-zinc-200">Razón Social:</strong> {empresa.razonSocial}</p>
