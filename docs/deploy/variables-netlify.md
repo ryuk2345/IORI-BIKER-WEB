@@ -20,6 +20,12 @@ Este documento detalla todas las variables de entorno necesarias para ejecutar *
 | `SUPABASE_SECRET_KEY` | Backend | **SÍ (SECRETA)** | Variable de compatibilidad idéntica a `SUPABASE_SERVICE_ROLE_KEY` para clientes administrativos de respaldo. |
 | `SUPABASE_PROJECT_REF` | Backend / Config | **No** (Técnica) | Identificador o subdominio del proyecto de Supabase en producción. Utilizado para referencia de infraestructura y endpoints de Storage. |
 
+> [!WARNING]
+> **Tipos de clave (formato nuevo de Supabase)**
+> - `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`: la **Publishable key** activa (`sb_publishable_...`) o la anon legacy. Si se borra o rota esa clave en Supabase, toda la web responde `Unregistered API key` (401) hasta actualizar la variable **y volver a desplegar**: las variables `NEXT_PUBLIC_` quedan fijadas en el build.
+> - `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY`: la **Secret key** (`sb_secret_...`) o la service_role legacy. El servidor rechaza cualquier clave pública en estas variables.
+> - Diagnóstico (solo admin): `/api/admin/health`.
+
 ---
 
 ## 2. Configuración del Sitio y Canales de Atención
