@@ -14,6 +14,7 @@ import {
   Check, 
   AlertCircle, 
   ExternalLink,
+  Copy,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -25,7 +26,9 @@ import { StickySaveBar } from '../ui/StickySaveBar';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { PhotoCropModal } from './PhotoCropModal';
 import { useToast } from '../ui/Toast';
-import { saveProduct, uploadImageToStorage } from '@/lib/services/admin-service';
+import { saveProduct, uploadImageToStorage, ProductSaveError } from '@/lib/services/admin-service';
+import { ADMIN_ROUTES } from '@/lib/routes/admin-routes';
+import { slugify } from '@/utils/slug';
 import { calcularCuotaEstimada } from '@/lib/acuotaz-estimado';
 import { formatPEN } from '@/utils/currency';
 import { createClient } from '@/lib/supabase/client';
@@ -42,6 +45,8 @@ interface AdminProductFormProps {
   brands: any[];
   onBack: () => void;
   onSaved: () => void;
+  /** Duplicar el producto guardado (solo al editar) */
+  onDuplicate?: (product: any) => void;
 }
 
 const COLORES_BASE: Record<string, string> = {
@@ -59,6 +64,7 @@ export function AdminProductForm({
   brands,
   onBack,
   onSaved,
+  onDuplicate,
 }: AdminProductFormProps) {
   const { showToast } = useToast();
   const isEditing = Boolean(initialProduct?.id);
@@ -111,9 +117,11 @@ export function AdminProductForm({
   });
 
   // Fotos
-  const [imagenes, setImagenes] = useState<{ url: string; orden: number }[]>(() => {
+  const [imagenes, setImagenes] = useState<{ url: string; orden: number; color?: string | null }[]>(() => {
     if (initialProduct?.producto_imagenes && initialProduct.producto_imagenes.length > 0) {
-      return [...initialProduct.producto_imagenes].sort((a, b) => a.orden - b.orden);
+      return [...initialProduct.producto_imagenes]
+        .sort((a, b) => a.orden - b.orden)
+        .map((img: any) => ({ url: img.url, orden: img.orden, color: img.color ?? null }));
     }
     if (initialProduct?.imagenes && Array.isArray(initialProduct.imagenes)) {
       return initialProduct.imagenes.map((url: string, idx: number) => ({
@@ -163,6 +171,8 @@ export function AdminProductForm({
         color_hex: v.color_hex || '#000000',
         stock: v.stock || 0,
         precio_ajuste: v.precio_ajuste || 0,
+        // SKU vacío (p. ej. al duplicar): se genera solo y se actualiza con el nombre
+        autoSku: !v.sku,
       }));
     }
     return [];
@@ -219,6 +229,36 @@ export function AdminProductForm({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
+  // Aviso (no error) si ya hay productos con el mismo nombre
+  const [mismosNombre, setMismosNombre] = useState<{ id: string; nombre: string; slug: string }[]>([]);
+  useEffect(() => {
+    const nombreLimpio = nombre.trim();
+    if (nombreLimpio.length < 4) {
+      setMismosNombre([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('productos')
+          .select('id, nombre, slug')
+          .ilike('nombre', nombreLimpio.replace(/[%_]/g, ''))
+          .neq('id', initialProduct?.id || 'none')
+          .limit(5);
+        setMismosNombre(data || []);
+      } catch {
+        setMismosNombre([]);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [nombre, initialProduct?.id]);
+
+  // Colores reales del producto (para asignar fotos por color)
+  const coloresParaFotos = tieneVariantes
+    ? selectedColores.filter((c) => c && c !== 'Estándar')
+    : [];
+
   // Subcategorías según la categoría seleccionada
   const selectedCategoryObj = categories.find((c) => c.slug === categoriaSlug);
   const subcategoriasList = selectedCategoryObj?.subcategorias || [];
@@ -262,20 +302,22 @@ export function AdminProductForm({
           const key = `${t}-${c}`;
           const existing = currentMap.get(key);
           const color_hex = colorHex[c] || existing?.color_hex || '#000000';
+          const autoSkuValue = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
           if (existing) {
             existing.color_hex = color_hex;
-            // Si la variante existente no tiene SKU, generarle uno editable
-            if (!existing.sku || !existing.sku.trim()) {
-              existing.sku = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
+            // SKU vacío o generado automáticamente: se regenera con el nombre actual
+            if (!existing.sku || !existing.sku.trim() || existing.autoSku) {
+              existing.sku = autoSkuValue;
+              existing.autoSku = true;
             }
             next.push(existing);
           } else {
-            const cleanSku = (sku ? `${sku}-${t}-${c.replace(/\s+/g, '')}` : generateVariantSku(nombre, t, c)).toUpperCase();
             next.push({
               talla: t,
               color: c,
               color_hex,
-              sku: cleanSku,
+              sku: autoSkuValue,
+              autoSku: true,
               stock: 5,
               precio_ajuste: 0,
             });
@@ -489,9 +531,8 @@ export function AdminProductForm({
 
     setIsSaving(true);
     try {
-      const generatedSlug = slug.trim()
-        ? slug.trim()
-        : nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      // Vacío: el servidor genera un enlace único aunque el nombre se repita
+      const requestedSlug = slugify(slug);
 
       const selectedCat = categories.find((c) => c.slug === categoriaSlug);
       const selectedMarca = brands.find((m) => m.id === marcaId);
@@ -512,7 +553,7 @@ export function AdminProductForm({
       const payload: any = {
         id: initialProduct?.id,
         nombre: nombre.trim(),
-        slug: generatedSlug,
+        slug: requestedSlug,
         // Con variantes, se guarda NULL en el SKU general (nunca copiar de variante)
         sku: resolveGeneralSku(tieneVariantes, sku),
         categoria_slug: categoriaSlug,
@@ -532,17 +573,37 @@ export function AdminProductForm({
         stock: calculatedStock,
         descripcion_corta: descripcionCorta.trim(),
         ficha_tecnica: fichaObj,
-        imagenes: imagenes.map((img, idx) => ({ url: img.url, orden: idx + 1 })),
-        variantes: tieneVariantes ? variantes : [],
+        imagenes: imagenes.map((img, idx) => ({
+          url: img.url,
+          orden: idx + 1,
+          color: img.color && coloresParaFotos.includes(img.color) ? img.color : null,
+        })),
+        variantes: tieneVariantes
+          ? variantes.map(({ autoSku: _auto, ...v }) => v)
+          : [],
       };
 
-      await saveProduct(payload);
+      const result = await saveProduct(payload);
+      if (result?.slug) setSlug(result.slug);
       setIsDirty(false);
       showToast('¡Producto guardado exitosamente en el catálogo!', 'success');
+      result?.warnings?.forEach((w) => showToast(w, 'error'));
       onSaved();
     } catch (err: any) {
       console.error('Error guardando producto:', err);
-      showToast('Error al guardar: ' + err.message, 'error');
+      const field = err instanceof ProductSaveError ? err.field : undefined;
+      if (field) {
+        // Mostrar el error junto a su campo y llevar al usuario hasta él
+        setErrors((prev) => ({ ...prev, [field]: err.message }));
+        setTimeout(() => {
+          const el = document.getElementById(`field-${field}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (typeof el.focus === 'function') el.focus();
+          }
+        }, 100);
+      }
+      showToast('No se pudo guardar: ' + err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -591,6 +652,20 @@ export function AdminProductForm({
         </div>
 
         <div className="flex items-center gap-2">
+          {isEditing && onDuplicate && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isDirty && !confirm('Se duplicará la última versión guardada; los cambios sin guardar no se copian. ¿Continuar?')) return;
+                onDuplicate(initialProduct);
+              }}
+              className="px-3.5 py-2 bg-white hover:bg-zinc-100 border border-zinc-300 rounded-lg text-12 font-bold text-zinc-700 flex items-center gap-1.5 transition cursor-pointer"
+              title="Crear una copia para otro color o diseño"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Duplicar</span>
+            </button>
+          )}
           {isEditing && (
             <Link
               href={`/producto/${slug || initialProduct?.slug}`}
@@ -686,6 +761,26 @@ export function AdminProductForm({
                   <AlertCircle className="w-3.5 h-3.5" /> {errors.nombre}
                 </p>
               )}
+              {mismosNombre.length > 0 && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-11 text-amber-900 space-y-1">
+                  <p className="font-bold">
+                    Ya tienes {mismosNombre.length === 1 ? '1 producto' : `${mismosNombre.length} productos`} con este nombre. Puedes guardarlo igual: su enlace será distinto.
+                  </p>
+                  <ul className="list-disc list-inside">
+                    {mismosNombre.map((p) => (
+                      <li key={p.id}>
+                        <Link href={ADMIN_ROUTES.PRODUCTO_EDITAR(p.id)} target="_blank" className="underline font-medium">
+                          {p.nombre}
+                        </Link>{' '}
+                        <span className="text-amber-700">(/producto/{p.slug})</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p>
+                    ¿Es el mismo modelo en otro color? Agrégalo como variante en la sección 4. Si cambia el diseño o el precio, conviene sumar el detalle al nombre (ej. &quot;– Rojo&quot;).
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Descripción */}
@@ -776,6 +871,20 @@ export function AdminProductForm({
               </p>
             </div>
 
+            {coloresParaFotos.length > 1 && (
+              <div className="p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-11 text-zinc-600">
+                <span className="font-bold text-zinc-800">Fotos por color:</span> en cada foto elige su color. En la tienda, al elegir un color se muestran sus fotos.{' '}
+                {coloresParaFotos.map((c) => {
+                  const n = imagenes.filter((img) => img.color === c).length;
+                  return (
+                    <span key={c} className={`inline-block mr-2 ${n === 0 ? 'text-zinc-400' : 'text-zinc-800 font-medium'}`}>
+                      {c}: {n === 0 ? 'usa las generales' : `${n} foto${n > 1 ? 's' : ''}`}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Cuadrícula de fotos cargadas */}
             {imagenes.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-2">
@@ -783,8 +892,8 @@ export function AdminProductForm({
                   const isCover = idx === 0;
 
                   return (
+                    <div key={idx} className="space-y-1.5">
                     <div
-                      key={idx}
                       className={`relative aspect-square rounded-xl border-2 overflow-hidden group bg-white shadow-xs transition-all ${
                         isCover ? 'border-[#F58220] ring-2 ring-orange-200/50' : 'border-zinc-200'
                       }`}
@@ -864,6 +973,26 @@ export function AdminProductForm({
                           </button>
                         </div>
                       </div>
+                    </div>
+                        {/* Color de la foto (solo si el producto tiene colores) */}
+                        {coloresParaFotos.length > 0 && (
+                          <select
+                            value={img.color || ''}
+                            onChange={(e) => {
+                              const value = e.target.value || null;
+                              setImagenes((prev) => prev.map((it, i) => (i === idx ? { ...it, color: value } : it)));
+                            }}
+                            aria-label={`Color de la foto ${idx + 1}`}
+                            title="¿De qué color es esta foto?"
+                            className="w-full text-11 font-bold bg-white border border-zinc-300 rounded-lg px-2 py-1 text-zinc-800 cursor-pointer"
+                          >
+                            <option value="">Todos los colores</option>
+                            {coloresParaFotos.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        )}
+
                     </div>
                   );
                 })}
@@ -1230,6 +1359,7 @@ export function AdminProductForm({
                                 onChange={(e) => {
                                   const next = [...variantes];
                                   next[vIdx].sku = e.target.value.toUpperCase();
+                                  next[vIdx].autoSku = false;
                                   setVariantes(next);
                                   if (errors[`variante_${vIdx}_sku`]) {
                                     setErrors((prev) => {
@@ -1498,14 +1628,32 @@ export function AdminProductForm({
                 Slug URL
               </label>
               <input
+                id="field-slug"
                 type="text"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, ''))}
-                placeholder="casco-ls2-ff800-storm-negro-mate"
-                className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-300 rounded-lg text-12 font-mono text-zinc-700 focus:bg-white focus:outline-none"
+                onChange={(e) => {
+                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, ''));
+                  if (errors.slug) {
+                    setErrors((prev) => {
+                      const n = { ...prev };
+                      delete n.slug;
+                      return n;
+                    });
+                  }
+                }}
+                placeholder={slugify(nombre) || 'casco-ls2-ff800-storm-negro-mate'}
+                className={`w-full px-3.5 py-2 bg-zinc-50 border rounded-lg text-12 font-mono text-zinc-700 focus:bg-white focus:outline-none ${
+                  errors.slug ? 'border-red-500 bg-red-50/20' : 'border-zinc-300'
+                }`}
               />
+              {errors.slug && (
+                <p className="text-11 text-red-500 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.slug}</span>
+                </p>
+              )}
               <p className="text-[11px] text-zinc-400">
-                Se autogenera del nombre si se deja vacío.
+                Déjalo vacío y se genera solo. Si el nombre ya existe, se agrega el color o un número (ej. -2).
               </p>
             </div>
 

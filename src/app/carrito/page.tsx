@@ -401,7 +401,7 @@ export default function CartPage() {
                           <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-[2px] overflow-hidden shrink-0 border border-zinc-200 p-1">
                             {item.producto.imagenes?.[0] ? (
                               <img
-                                src={item.producto.imagenes[0]}
+                                src={(item.colorSeleccionado && item.producto.imagenesPorColor?.[item.colorSeleccionado]?.[0]) || item.producto.imagenes[0]}
                                 alt={item.producto.nombre}
                                 className="w-full h-full object-contain"
                               />

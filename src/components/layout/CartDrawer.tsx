@@ -77,7 +77,7 @@ export function CartDrawer() {
                   {/* Imagen del producto en 1:1 sobre fondo blanco */}
                   <div className="w-20 h-20 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center overflow-hidden">
                     <Image
-                      src={item.producto.imagenes[0]}
+                      src={(item.colorSeleccionado && item.producto.imagenesPorColor?.[item.colorSeleccionado]?.[0]) || item.producto.imagenes[0]}
                       alt={item.producto.nombre}
                       width={80}
                       height={80}

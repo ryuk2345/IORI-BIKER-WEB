@@ -56,18 +56,24 @@ export function BulkPhotoModal({
 
         try {
           const uploadedUrl = await uploadImageToStorage(file, 'productos');
-          const currentImages = (target.producto_imagenes || []).map((img: any) => ({
+          const currentImages = [...(target.producto_imagenes || [])]
+            .sort((a: any, b: any) => (a.orden || 0) - (b.orden || 0))
+            .map((img: any) => ({
             url: img.url,
             orden: img.orden,
+            color: img.color ?? null,
           }));
 
           currentImages.push({
             url: uploadedUrl,
             orden: currentImages.length + 1,
+            color: null,
           });
 
+          // Enviar también las variantes: si no, el guardado las borraría
           await saveProduct({
             ...target,
+            variantes: target.producto_variantes || [],
             imagenes: currentImages,
           });
           matched++;

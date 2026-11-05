@@ -2,14 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { verifyAdminOnly } from '@/lib/security/auth-check';
+import { slugify, buildUniqueSlug } from '@/utils/slug';
 
 /** Traduce errores de Supabase a mensajes accionables para el panel */
 function toErrorMessage(err: any): string {
-  if (err?.code === '42501' || /row-level security/i.test(err?.message || '')) {
+  const msg = err?.message || '';
+  if (err?.code === '42501' || /row-level security/i.test(msg)) {
     return 'Supabase rechazó la escritura por reglas RLS: el servidor no está usando la clave secreta. ' +
       'Revisa SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY en Netlify y vuelve a desplegar.';
   }
-  return err?.message || 'Error desconocido al guardar el producto.';
+  if (err?.code === '23505') {
+    if (/slug/i.test(msg)) return 'Ese enlace ya lo usa otro producto. Cámbialo o déjalo vacío para generarlo automáticamente.';
+    if (/sku/i.test(msg)) return 'Uno de los SKU ya existe en otro producto. Revisa los códigos SKU.';
+    return 'Ya existe un registro con esos datos.';
+  }
+  if (err?.code === '23502') return 'Falta un dato obligatorio del producto.';
+  return msg || 'Error desconocido al guardar el producto.';
+}
+
+/** Campo del formulario al que pertenece un error de la base de datos */
+function errorField(err: any): string | undefined {
+  if (err?.code === '23505' && /slug/i.test(err?.message || '')) return 'slug';
+  return undefined;
+}
+
+/** Error de columna inexistente (migración aún no aplicada) */
+function isMissingColumn(err: any, column: string): boolean {
+  const msg = `${err?.message || ''} ${err?.details || ''}`;
+  return (err?.code === 'PGRST204' || err?.code === '42703') && msg.includes(column);
+}
+
+/** Error con campo asociado para mostrarlo junto al input correcto */
+function fieldError(field: string, error: string) {
+  return NextResponse.json({ error, field }, { status: 400 });
 }
 
 /** Guardar o crear producto (POST) */
@@ -24,100 +49,108 @@ export async function POST(req: NextRequest) {
     const adminSupabase = createAdminClient();
 
     // 1. Validaciones de Categoría y Marca obligatorias
-    if (!body.categoria_slug || !body.categoria_slug.trim()) {
-      return NextResponse.json({ error: 'La categoría del producto es obligatoria.' }, { status: 400 });
+    if (!body.categoria_slug || !String(body.categoria_slug).trim()) {
+      return fieldError('categoria', 'La categoría del producto es obligatoria.');
     }
-    if (!body.marca_id || !body.marca_id.trim()) {
-      return NextResponse.json({ error: 'La marca oficial del producto es obligatoria.' }, { status: 400 });
+    if (!body.marca_id || !String(body.marca_id).trim()) {
+      return fieldError('marca', 'La marca oficial del producto es obligatoria.');
+    }
+    if (!body.nombre || !String(body.nombre).trim()) {
+      return fieldError('nombre', 'El nombre del producto es obligatorio.');
     }
 
     const hasVariants = Boolean(body.variantes && body.variantes.length > 0);
-    const cleanGeneralSku = body.sku ? body.sku.trim().toUpperCase() : '';
+    const cleanGeneralSku = body.sku ? String(body.sku).trim().toUpperCase() : '';
+    const currentId: string = body.id || 'none';
 
     // 2. Validación de SKU General: Con variantes se guarda NULL; sin variantes es obligatorio
     let finalGeneralSku: string | null = null;
-    if (hasVariants) {
-      finalGeneralSku = null; // No copiar SKU de variante, siempre NULL en el producto padre
-    } else {
+    if (!hasVariants) {
       if (!cleanGeneralSku) {
-        return NextResponse.json({ error: 'El código SKU es obligatorio para productos sin variantes.' }, { status: 400 });
+        return fieldError('sku', 'El código SKU es obligatorio para productos sin variantes.');
       }
       finalGeneralSku = cleanGeneralSku;
 
-      // Comprobar duplicado de SKU general contra otros productos y variantes
-      const { data: prodDupe } = await adminSupabase
-        .from('productos')
-        .select('id, nombre')
-        .eq('sku', cleanGeneralSku)
-        .neq('id', body.id || 'none')
-        .maybeSingle();
+      const [{ data: prodDupe }, { data: varDupe }] = await Promise.all([
+        adminSupabase.from('productos').select('id, nombre').eq('sku', cleanGeneralSku).neq('id', currentId).maybeSingle(),
+        adminSupabase.from('producto_variantes').select('id, producto_id').eq('sku', cleanGeneralSku).neq('producto_id', currentId).maybeSingle(),
+      ]);
       if (prodDupe) {
-        return NextResponse.json({ error: `El SKU "${cleanGeneralSku}" ya pertenece a "${prodDupe.nombre}".` }, { status: 400 });
+        return fieldError('sku', `El SKU "${cleanGeneralSku}" ya pertenece a "${prodDupe.nombre}".`);
       }
-
-      const { data: varDupe } = await adminSupabase
-        .from('producto_variantes')
-        .select('id, sku')
-        .eq('sku', cleanGeneralSku)
-        .neq('producto_id', body.id || 'none')
-        .maybeSingle();
       if (varDupe) {
-        return NextResponse.json({ error: `El SKU "${cleanGeneralSku}" ya está registrado en otra variante existente.` }, { status: 400 });
+        return fieldError('sku', `El SKU "${cleanGeneralSku}" ya está registrado en una variante de otro producto.`);
       }
     }
 
     // 3. Validación de Variantes: SKU no vacío, no duplicado internamente ni contra otros productos
     if (hasVariants) {
       const seenSkus = new Set<string>();
-      for (const v of body.variantes) {
-        const vSku = v.sku ? v.sku.trim().toUpperCase() : '';
+      for (let idx = 0; idx < body.variantes.length; idx++) {
+        const v = body.variantes[idx];
+        const vSku = v.sku ? String(v.sku).trim().toUpperCase() : '';
+        const field = `variante_${idx}_sku`;
         if (!vSku) {
-          return NextResponse.json(
-            { error: `La variante (${v.talla || 'STD'} / ${v.color || 'STD'}) no tiene código SKU.` },
-            { status: 400 }
-          );
+          return fieldError(field, `La variante ${v.talla || 'STD'} / ${v.color || 'STD'} no tiene código SKU.`);
         }
         if (seenSkus.has(vSku)) {
-          return NextResponse.json(
-            { error: `El SKU "${vSku}" está duplicado en las variantes de este producto.` },
-            { status: 400 }
-          );
+          return fieldError(field, `El SKU "${vSku}" está repetido en las variantes de este producto.`);
         }
         seenSkus.add(vSku);
 
-        // Duplicado contra otros productos
-        const { data: pMatch } = await adminSupabase
-          .from('productos')
-          .select('id, nombre')
-          .eq('sku', vSku)
-          .neq('id', body.id || 'none')
-          .maybeSingle();
+        const [{ data: pMatch }, { data: vMatch }] = await Promise.all([
+          adminSupabase.from('productos').select('id, nombre').eq('sku', vSku).neq('id', currentId).maybeSingle(),
+          adminSupabase.from('producto_variantes').select('id, producto_id').eq('sku', vSku).neq('producto_id', currentId).maybeSingle(),
+        ]);
         if (pMatch) {
-          return NextResponse.json(
-            { error: `El SKU "${vSku}" ya pertenece al producto "${pMatch.nombre}".` },
-            { status: 400 }
-          );
+          return fieldError(field, `El SKU "${vSku}" ya pertenece al producto "${pMatch.nombre}".`);
         }
-
-        // Duplicado contra variantes de otros productos
-        const { data: vMatch } = await adminSupabase
-          .from('producto_variantes')
-          .select('id, producto_id, sku')
-          .eq('sku', vSku)
-          .neq('producto_id', body.id || 'none')
-          .maybeSingle();
         if (vMatch) {
-          return NextResponse.json(
-            { error: `El SKU "${vSku}" ya está registrado en otra variante existente en el catálogo.` },
-            { status: 400 }
-          );
+          return fieldError(field, `El SKU "${vSku}" ya está registrado en una variante de otro producto.`);
         }
       }
     }
 
+    // 4. Enlace (slug): el nombre puede repetirse, el enlace no.
+    //    - Si el usuario escribió un enlace y ya lo usa otro producto → error en el campo.
+    //    - Si lo dejó vacío → se genera uno libre (nombre, nombre + color, -2, -3…).
+    const requestedSlug = slugify(body.slug || '');
+    let finalSlug: string;
+    if (requestedSlug) {
+      const { data: slugOwner } = await adminSupabase
+        .from('productos')
+        .select('id, nombre')
+        .eq('slug', requestedSlug)
+        .neq('id', currentId)
+        .maybeSingle();
+      if (slugOwner) {
+        return fieldError(
+          'slug',
+          `Ese enlace ya lo usa el producto "${slugOwner.nombre}". Cámbialo o déjalo vacío para generarlo automáticamente.`
+        );
+      }
+      finalSlug = requestedSlug;
+    } else {
+      const base = slugify(body.nombre) || 'producto';
+      const { data: similares, error: slugErr } = await adminSupabase
+        .from('productos')
+        .select('slug')
+        .like('slug', `${base}%`)
+        .neq('id', currentId);
+      if (slugErr) throw slugErr;
+      const colores = hasVariants
+        ? Array.from(new Set(body.variantes.map((v: any) => v.color).filter(Boolean)))
+        : [];
+      finalSlug = buildUniqueSlug(
+        body.nombre,
+        (similares || []).map((r: any) => r.slug),
+        colores.length === 1 ? String(colores[0]) : null
+      );
+    }
+
     const productPayload: any = {
-      nombre: body.nombre,
-      slug: body.slug,
+      nombre: String(body.nombre).trim(),
+      slug: finalSlug,
       categoria_slug: body.categoria_slug,
       subcategoria_slug: body.subcategoria_slug || '',
       categoria_nombre: body.categoria_nombre,
@@ -143,76 +176,124 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    let savedProductId = body.id;
-
+    // 5. Copia de seguridad del estado anterior (solo al editar) para deshacer si algo falla.
+    let snapshot: { product: any; variantes: any[]; imagenes: any[] } | null = null;
     if (body.id) {
-      const { error } = await adminSupabase
-        .from('productos')
-        .update(productPayload)
-        .eq('id', body.id);
-      if (error) throw error;
-    } else {
-      const { data, error } = await adminSupabase
-        .from('productos')
-        .insert(productPayload)
-        .select('id')
-        .single();
-      if (error) throw error;
-      savedProductId = data.id;
+      const [{ data: prevProduct }, { data: prevVars }, { data: prevImgs }] = await Promise.all([
+        adminSupabase.from('productos').select('*').eq('id', body.id).maybeSingle(),
+        adminSupabase.from('producto_variantes').select('*').eq('producto_id', body.id),
+        adminSupabase.from('producto_imagenes').select('*').eq('producto_id', body.id),
+      ]);
+      if (!prevProduct) {
+        return NextResponse.json(
+          { error: 'Este producto ya no existe (puede que lo hayan eliminado). Vuelve a la lista y recarga.' },
+          { status: 404 }
+        );
+      }
+      snapshot = { product: prevProduct, variantes: prevVars || [], imagenes: prevImgs || [] };
     }
 
-    // Guardar variantes (los errores se propagan: nunca fallar en silencio)
-    const { error: delVarError } = await adminSupabase
-      .from('producto_variantes')
-      .delete()
-      .eq('producto_id', savedProductId);
-    if (delVarError) throw delVarError;
+    let savedProductId: string = body.id;
+    let createdNew = false;
+    const warnings: string[] = [];
 
-    if (hasVariants) {
-      const varRows = body.variantes.map((v: any) => ({
-        producto_id: savedProductId,
-        sku: v.sku.trim().toUpperCase(),
-        talla: v.talla,
-        color: v.color,
-        color_hex: v.color_hex,
-        stock: v.stock || 0,
-        precio_ajuste: v.precio_ajuste || 0,
-      }));
-      const { error: insVarError } = await adminSupabase.from('producto_variantes').insert(varRows);
-      if (insVarError) throw insVarError;
-    }
+    try {
+      if (body.id) {
+        const { error } = await adminSupabase.from('productos').update(productPayload).eq('id', body.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await adminSupabase.from('productos').insert(productPayload).select('id').single();
+        if (error) throw error;
+        savedProductId = data.id;
+        createdNew = true;
+      }
 
-    // Guardar fotos en producto_imagenes (la tienda las lee de ahí)
-    if (Array.isArray(body.imagenes)) {
-      const { error: delImgError } = await adminSupabase
-        .from('producto_imagenes')
+      // Variantes
+      const { error: delVarError } = await adminSupabase
+        .from('producto_variantes')
         .delete()
         .eq('producto_id', savedProductId);
-      if (delImgError) throw delImgError;
+      if (delVarError) throw delVarError;
 
-      const imgRows = body.imagenes
-        .filter((img: any) => img && typeof img.url === 'string' && img.url.trim())
-        .map((img: any, idx: number) => ({
+      if (hasVariants) {
+        const varRows = body.variantes.map((v: any) => ({
           producto_id: savedProductId,
-          url: img.url.trim(),
-          orden: idx + 1,
-          alt: body.nombre || null,
+          sku: String(v.sku).trim().toUpperCase(),
+          talla: v.talla,
+          color: v.color,
+          color_hex: v.color_hex,
+          stock: v.stock || 0,
+          precio_ajuste: v.precio_ajuste || 0,
         }));
-      if (imgRows.length > 0) {
-        const { error: insImgError } = await adminSupabase.from('producto_imagenes').insert(imgRows);
-        if (insImgError) throw insImgError;
+        const { error: insVarError } = await adminSupabase.from('producto_variantes').insert(varRows);
+        if (insVarError) throw insVarError;
       }
+
+      // Fotos (la tienda las lee de producto_imagenes). Cada foto puede pertenecer a un color.
+      if (Array.isArray(body.imagenes)) {
+        const { error: delImgError } = await adminSupabase
+          .from('producto_imagenes')
+          .delete()
+          .eq('producto_id', savedProductId);
+        if (delImgError) throw delImgError;
+
+        const coloresValidos = new Set(
+          hasVariants ? body.variantes.map((v: any) => v.color).filter(Boolean) : []
+        );
+        const imgRows = body.imagenes
+          .filter((img: any) => img && typeof img.url === 'string' && img.url.trim())
+          .map((img: any, idx: number) => ({
+            producto_id: savedProductId,
+            url: img.url.trim(),
+            orden: idx + 1,
+            alt: productPayload.nombre,
+            color: img.color && coloresValidos.has(img.color) ? img.color : null,
+          }));
+
+        if (imgRows.length > 0) {
+          let { error: insImgError } = await adminSupabase.from('producto_imagenes').insert(imgRows);
+          if (insImgError && isMissingColumn(insImgError, 'color')) {
+            // La migración de fotos por color aún no se aplicó: guardar sin color.
+            const sinColor = imgRows.map(({ color: _c, ...rest }: any) => rest);
+            ({ error: insImgError } = await adminSupabase.from('producto_imagenes').insert(sinColor));
+            if (imgRows.some((r: any) => r.color)) {
+              warnings.push('Las fotos se guardaron sin asignar color: falta aplicar la migración de fotos por color en Supabase.');
+            }
+          }
+          if (insImgError) throw insImgError;
+        }
+      }
+    } catch (saveErr) {
+      // Deshacer para no dejar productos a medias
+      try {
+        if (createdNew && savedProductId) {
+          await adminSupabase.from('productos').delete().eq('id', savedProductId);
+        } else if (snapshot) {
+          const { id: _id, ...prevFields } = snapshot.product;
+          await adminSupabase.from('productos').update(prevFields).eq('id', body.id);
+          await adminSupabase.from('producto_variantes').delete().eq('producto_id', body.id);
+          if (snapshot.variantes.length) await adminSupabase.from('producto_variantes').insert(snapshot.variantes);
+          await adminSupabase.from('producto_imagenes').delete().eq('producto_id', body.id);
+          if (snapshot.imagenes.length) await adminSupabase.from('producto_imagenes').insert(snapshot.imagenes);
+        }
+      } catch (rollbackErr) {
+        console.error('No se pudo deshacer el guardado parcial del producto:', rollbackErr);
+      }
+      throw saveErr;
     }
 
     // Revalidar caché de Next.js
     revalidatePath('/');
     revalidatePath('/productos');
-    revalidatePath(`/producto/${body.slug}`);
+    revalidatePath(`/producto/${finalSlug}`);
+    if (snapshot?.product?.slug && snapshot.product.slug !== finalSlug) {
+      revalidatePath(`/producto/${snapshot.product.slug}`);
+    }
 
-    return NextResponse.json({ success: true, id: savedProductId });
+    return NextResponse.json({ success: true, id: savedProductId, slug: finalSlug, warnings });
   } catch (err: any) {
     console.error('Error en POST /api/admin/products:', err);
-    return NextResponse.json({ error: toErrorMessage(err) }, { status: 500 });
+    return NextResponse.json({ error: toErrorMessage(err), field: errorField(err) }, { status: 500 });
   }
 }
 

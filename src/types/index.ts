@@ -50,6 +50,8 @@ export interface Producto {
   modoVenta: 'online' | 'cotizar';
   modo_venta?: string;
   imagenes: string[];
+  /** Fotos propias de cada color (si la clienta las asignó en el admin) */
+  imagenesPorColor?: Record<string, string[]>;
   descripcionCorta: string;
   descripcionLarga: string;
   descripcion?: string;

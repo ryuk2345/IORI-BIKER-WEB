@@ -38,7 +38,19 @@ export interface ProductoAdminInput {
   imagenes?: Array<{
     url: string;
     orden: number;
+    /** Color al que pertenece la foto (null = foto general) */
+    color?: string | null;
   }>;
+}
+
+/** Error de guardado con el campo del formulario al que pertenece */
+export class ProductSaveError extends Error {
+  field?: string;
+  constructor(message: string, field?: string) {
+    super(message);
+    this.name = 'ProductSaveError';
+    this.field = field;
+  }
 }
 
 /** Disparar revalidación de Next.js para que el front se actualice al instante */
@@ -114,11 +126,15 @@ export async function saveProduct(product: ProductoAdminInput) {
     body: JSON.stringify(product),
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || 'Error al guardar producto');
+    throw new ProductSaveError(data.error || 'Error al guardar producto', data.field);
   }
-  return data.id;
+  return {
+    id: data.id as string,
+    slug: data.slug as string,
+    warnings: (data.warnings || []) as string[],
+  };
 }
 
 /** Eliminar producto */
