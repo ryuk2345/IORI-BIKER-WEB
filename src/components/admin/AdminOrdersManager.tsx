@@ -9,6 +9,16 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatPEN } from '@/utils/currency';
+import { useAdminData } from '@/components/admin/AdminDataContext';
+import { obtenerEtiquetaEntrega, ETIQUETAS_METODO_ENTREGA } from '@/utils/labels';
+
+/** Entrega legible: nunca muestra claves internas como "recojo_independencia" */
+function textoEntrega(p: any): string {
+  const etiqueta = obtenerEtiquetaEntrega(p?.metodo_entrega);
+  const dir = (p?.direccion_entrega || '').trim();
+  if (!dir || dir === p?.metodo_entrega || ETIQUETAS_METODO_ENTREGA[dir.toLowerCase()]) return etiqueta;
+  return `${etiqueta} · ${dir}`;
+}
 
 interface PedidoItem {
   id: string;
@@ -71,6 +81,8 @@ export function AdminOrdersManager({ initialCodigo }: AdminOrdersManagerProps = 
   const [plantillas, setPlantillas] = useState<any[]>([]);
   const [datosPagoAjustes, setDatosPagoAjustes] = useState<any>(null);
 
+  const { refreshInboxCounts } = useAdminData();
+
   const fetchPedidos = async () => {
     setLoading(true);
     try {
@@ -82,6 +94,8 @@ export function AdminOrdersManager({ initialCodigo }: AdminOrdersManagerProps = 
 
       if (!error && data) {
         setPedidos(data);
+        // Actualizar el contador del menú (solo pedidos pendientes)
+        refreshInboxCounts();
         if (initialCodigo) {
           const match = data.find((p: any) => p.codigo === initialCodigo);
           if (match) {
@@ -473,7 +487,7 @@ Para recogerlo en la agencia, lleva tu DNI.`;
                     </div>
 
                     <div className="text-xs text-zinc-500">
-                      Entrega: <b className="text-zinc-700">{p.direccion_entrega || p.metodo_entrega}</b>
+                      Entrega: <b className="text-zinc-700">{textoEntrega(p)}</b>
                     </div>
                   </div>
 
@@ -681,7 +695,7 @@ Para recogerlo en la agencia, lleva tu DNI.`;
 
               <div className="sm:col-span-2">
                 <span className="font-bold text-zinc-900 block mb-1">Entrega:</span>
-                <p>{selectedPedido.direccion_entrega || selectedPedido.metodo_entrega}</p>
+                <p>{textoEntrega(selectedPedido)}</p>
               </div>
 
               {selectedPedido.notas && (

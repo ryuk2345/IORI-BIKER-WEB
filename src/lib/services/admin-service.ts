@@ -340,10 +340,14 @@ export async function saveAdminCoupon(coupon: any) {
 }
 
 /** Bandejas */
+/** Estados de pedido que el equipo todavía tiene que atender */
+export const ESTADOS_PEDIDO_PENDIENTES = ['nuevo', 'esperando_pago'];
+
 export async function getInboxCount() {
   const supabase = createClient();
   const [pedidos, financiamiento, postulaciones, contacto, resenas, reclamaciones] = await Promise.all([
-    supabase.from('pedidos').select('id', { count: 'exact', head: true }),
+    // Solo pedidos que requieren atención: los cancelados o entregados no cuentan
+    supabase.from('pedidos').select('id', { count: 'exact', head: true }).in('estado', ESTADOS_PEDIDO_PENDIENTES),
     supabase.from('solicitudes_financiamiento').select('id', { count: 'exact', head: true }),
     supabase.from('postulaciones').select('id', { count: 'exact', head: true }),
     supabase.from('mensajes_contacto').select('id', { count: 'exact', head: true }),
