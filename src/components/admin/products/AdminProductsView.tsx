@@ -98,30 +98,39 @@ export function AdminProductsView({
   const [statusFilter, setStatusFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
 
-  // 1. Manejo de duplicación de producto
+  // 1. Duplicar producto: misma ficha para otro color o diseño.
+  //    Copia todo menos SKU, stock y enlace (se generan de nuevo) y abre la copia como borrador.
   const handleDuplicate = (prod: any) => {
     const duplicated: any = {
       ...prod,
       id: undefined, // nuevo id al guardar
-      nombre: `[Copia] ${prod.nombre}`,
-      sku: `${prod.sku}-CP`,
-      slug: `${prod.slug}-copia-${Date.now().toString().slice(-4)}`,
-      activo: false, // duplicado inicia como borrador
+      nombre: `${prod.nombre} (copia)`,
+      sku: '',
+      slug: '', // el servidor genera un enlace único
+      stock: 0,
+      activo: false, // la copia inicia como borrador
       created_at: undefined,
       updated_at: undefined,
+      producto_imagenes: (prod.producto_imagenes || []).map((img: any) => ({
+        url: img.url,
+        orden: img.orden,
+        color: img.color ?? null,
+      })),
+      producto_variantes: (prod.producto_variantes || []).map((v: any) => ({
+        talla: v.talla,
+        color: v.color,
+        color_hex: v.color_hex,
+        precio_ajuste: v.precio_ajuste || 0,
+        sku: '', // se genera solo con el nuevo nombre
+        stock: 0,
+      })),
     };
-
-    if (prod.producto_variantes) {
-      duplicated.producto_variantes = prod.producto_variantes.map((v: any) => ({
-        ...v,
-        id: undefined,
-        sku: `${v.sku}-CP`,
-      }));
-    }
 
     setEditingProduct(duplicated);
     setViewMode('form');
-    showToast(`Borrador duplicado de "${prod.nombre}" listo para revisar.`);
+    showToast(
+      `Copia de "${prod.nombre}" lista como borrador. Cambia el nombre, el color o las fotos, completa el stock y guarda.`
+    );
   };
 
   // 2. Guardado rápido inline de precio y stock
@@ -550,7 +559,9 @@ export function AdminProductsView({
   if (viewMode === 'form') {
     return (
       <AdminProductForm
+        key={editingProduct?.id || editingProduct?.nombre || 'nuevo'}
         initialProduct={editingProduct}
+        onDuplicate={handleDuplicate}
         categories={categories}
         brands={brands}
         onBack={() => {

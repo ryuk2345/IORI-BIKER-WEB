@@ -74,9 +74,18 @@ export function ProductDetailView({ producto, relacionados = [] }: ProductDetail
       ? Math.round(((producto.precioOriginal - producto.precio) / producto.precioOriginal) * 100)
       : 0);
 
-  const imagenes = producto.imagenes && producto.imagenes.length > 0
-    ? producto.imagenes
-    : ['/images/products/prod_1.png'];
+  // Galería: fotos del color elegido; si ese color no tiene fotos propias, las generales
+  const fotosDelColor = selectedColor ? producto.imagenesPorColor?.[selectedColor] : undefined;
+  const fotosConColor = new Set(Object.values(producto.imagenesPorColor || {}).flat());
+  const fotosGenerales = (producto.imagenes || []).filter((url) => !fotosConColor.has(url));
+  const imagenes =
+    fotosDelColor && fotosDelColor.length > 0
+      ? fotosDelColor
+      : fotosGenerales.length > 0
+        ? fotosGenerales
+        : producto.imagenes && producto.imagenes.length > 0
+          ? producto.imagenes
+          : ['/images/products/prod_1.png'];
 
   const whatsappProductoUrl = `${whatsapp.url}?text=${encodeURIComponent(
     `Hola Iori Biker Shop, deseo cotizar el producto: ${producto.nombre} (SKU: ${producto.sku || producto.id})`
@@ -289,7 +298,11 @@ export function ProductDetailView({ producto, relacionados = [] }: ProductDetail
                     <button
                       key={color.nombre}
                       type="button"
-                      onClick={() => setSelectedColor(color.nombre)}
+                      onClick={() => {
+                        setSelectedColor(color.nombre);
+                        setSelectedImage(0);
+                        setIsZoomed(false);
+                      }}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-[4px] border text-12 transition-colors cursor-pointer ${
                         selectedColor === color.nombre
                           ? 'border-zinc-950 bg-zinc-50 font-bold'

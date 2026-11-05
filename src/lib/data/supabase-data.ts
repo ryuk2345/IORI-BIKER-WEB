@@ -54,10 +54,12 @@ export async function getProductos(): Promise<Producto[]> {
       });
       const colores = Array.from(coloresMap.values());
 
-      const imagenesDb = (p.producto_imagenes || [])
-        .sort((a: any, b: any) => a.orden - b.orden)
-        .map((img: any) => img.url);
-      const imagenes = imagenesDb.length > 0 ? imagenesDb : [];
+      const imagenesOrdenadas = [...(p.producto_imagenes || [])].sort((a: any, b: any) => a.orden - b.orden);
+      const imagenes: string[] = imagenesOrdenadas.map((img: any) => img.url);
+      const imagenesPorColor: Record<string, string[]> = {};
+      imagenesOrdenadas.forEach((img: any) => {
+        if (img.color) (imagenesPorColor[img.color] ||= []).push(img.url);
+      });
 
       const precio = Number(p.precio) || 0;
       const precioOriginal = p.precio_original ? Number(p.precio_original) : undefined;
@@ -81,6 +83,7 @@ export async function getProductos(): Promise<Producto[]> {
         esCombo: Boolean(p.es_combo),
         modoVenta: p.modo_venta || 'online',
         imagenes,
+        imagenesPorColor: Object.keys(imagenesPorColor).length > 0 ? imagenesPorColor : undefined,
         descripcionCorta: p.descripcion_corta || '',
         descripcionLarga: p.descripcion_larga || '',
         sku: p.sku || '',

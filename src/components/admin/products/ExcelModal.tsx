@@ -160,7 +160,8 @@ export function ExcelModal({
         await saveProduct({
           id: existing?.id,
           nombre: row.nombre,
-          slug: existing?.slug || row.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+          // Vacío en productos nuevos: el servidor genera un enlace único aunque el nombre se repita
+          slug: existing?.slug || '',
           categoria_slug: selectedCat?.slug || 'cascos',
           categoria_nombre: selectedCat?.nombre || 'Cascos',
           marca_id: selectedMarca?.id || '',
