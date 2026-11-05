@@ -5,6 +5,7 @@
 
 export const ETIQUETAS_ESTADO_PEDIDO: Record<string, string> = {
   nuevo: 'Nuevo',
+  esperando_pago: 'Esperando pago',
   contactado: 'Contactado',
   pagado: 'Pagado',
   en_preparacion: 'En preparación',

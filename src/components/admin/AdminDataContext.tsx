@@ -38,6 +38,8 @@ export interface AdminDataContextType {
     reclamaciones: number;
   };
   refreshAll: () => Promise<void>;
+  /** Recalcula los contadores del menú (pedidos pendientes, mensajes) */
+  refreshInboxCounts: () => Promise<void>;
   handleLogout: () => Promise<void>;
   setUser: (user: any) => void;
 }
@@ -175,6 +177,14 @@ export function AdminDataProvider({ children, initialUser = null }: AdminDataPro
     }
   }, [user]);
 
+  const refreshInboxCounts = useCallback(async () => {
+    try {
+      setInboxCounts(await getInboxCount());
+    } catch {
+      // Mantener los contadores actuales si falla
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       loadAllData();
@@ -216,6 +226,7 @@ export function AdminDataProvider({ children, initialUser = null }: AdminDataPro
         invitedStaffCount,
         inboxCounts,
         refreshAll: loadAllData,
+        refreshInboxCounts,
         handleLogout,
         setUser,
       }}
